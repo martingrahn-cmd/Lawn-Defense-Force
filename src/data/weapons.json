@@ -1,0 +1,44 @@
+{
+  "pulsePistol": {
+    "name": "Pulse Pistol",
+    "type": "semi",
+    "damage": 15,
+    "fireRate": 0.18,
+    "magazineSize": -1,
+    "reloadTime": 0,
+    "projectileSpeed": 60,
+    "spread": 0.03,
+    "projectilesPerShot": 1,
+    "color": [0.2, 1.0, 0.4],
+    "sound": "shoot",
+    "pitch": 1.2
+  },
+  "assaultRifle": {
+    "name": "Assault Rifle",
+    "type": "auto",
+    "damage": 10,
+    "fireRate": 0.1,
+    "magazineSize": 30,
+    "reloadTime": 1.5,
+    "projectileSpeed": 70,
+    "spread": 0.06,
+    "projectilesPerShot": 1,
+    "color": [1.0, 0.8, 0.2],
+    "sound": "shoot",
+    "pitch": 0.9
+  },
+  "plasmaShotgun": {
+    "name": "Plasma Shotgun",
+    "type": "semi",
+    "damage": 8,
+    "fireRate": 0.6,
+    "magazineSize": 6,
+    "reloadTime": 2.0,
+    "projectileSpeed": 45,
+    "spread": 0.15,
+    "projectilesPerShot": 7,
+    "color": [0.3, 0.5, 1.0],
+    "sound": "shotgun",
+    "pitch": 1.0
+  }
+}

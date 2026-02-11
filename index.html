@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lawn Defense Force</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+    canvas { display: block; }
+    #game-container { width: 100%; height: 100%; position: relative; }
+    #hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; font-family: 'Segoe UI', Tahoma, sans-serif; }
+    #loading-screen {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: #111; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; z-index: 100;
+      color: #0f0; font-family: monospace;
+    }
+    #loading-screen h1 { font-size: 48px; margin-bottom: 20px; text-shadow: 0 0 20px #0f0; }
+    #loading-screen .subtitle { font-size: 18px; color: #0a0; margin-bottom: 40px; }
+    #loading-screen .start-btn {
+      padding: 15px 40px; font-size: 24px; background: transparent;
+      border: 2px solid #0f0; color: #0f0; cursor: pointer;
+      font-family: monospace; pointer-events: all; transition: all 0.2s;
+    }
+    #loading-screen .start-btn:hover { background: #0f0; color: #000; }
+    .hud-top {
+      display: flex; justify-content: space-between; padding: 15px 20px;
+    }
+    .hud-bottom {
+      position: absolute; bottom: 15px; left: 20px; right: 20px;
+      display: flex; justify-content: space-between; align-items: flex-end;
+    }
+    .hud-panel {
+      background: rgba(0,0,0,0.6); border: 1px solid rgba(0,255,0,0.3);
+      padding: 8px 14px; color: #0f0; font-size: 14px; border-radius: 4px;
+    }
+    .health-bar-container {
+      width: 200px; height: 12px; background: rgba(0,0,0,0.7);
+      border: 1px solid rgba(0,255,0,0.4); border-radius: 2px;
+    }
+    .health-bar {
+      height: 100%; background: linear-gradient(90deg, #0a0, #0f0);
+      border-radius: 2px; transition: width 0.2s;
+    }
+    .score-popup {
+      position: absolute; color: #ff0; font-size: 20px; font-weight: bold;
+      text-shadow: 0 0 5px #fa0; pointer-events: none;
+      animation: scoreFloat 0.8s ease-out forwards;
+    }
+    @keyframes scoreFloat {
+      0% { transform: translateY(0); opacity: 1; }
+      100% { transform: translateY(-60px); opacity: 0; }
+    }
+    .combo-display {
+      position: absolute; top: 50%; right: 30px; transform: translateY(-50%);
+      font-size: 36px; color: #f80; font-weight: bold;
+      text-shadow: 0 0 15px #f80; opacity: 0; transition: opacity 0.2s;
+    }
+    .combo-display.active { opacity: 1; }
+    .wave-announce {
+      position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%);
+      font-size: 48px; color: #f00; font-weight: bold; text-shadow: 0 0 30px #f00;
+      opacity: 0; pointer-events: none;
+    }
+    .crosshair {
+      position: absolute; width: 24px; height: 24px; pointer-events: none;
+      transform: translate(-50%, -50%);
+    }
+    .crosshair::before, .crosshair::after {
+      content: ''; position: absolute; background: rgba(0,255,0,0.8);
+    }
+    .crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+    .crosshair::after { height: 2px; width: 100%; top: 50%; transform: translateY(-50%); }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <div id="hud">
+      <div class="hud-top">
+        <div class="hud-panel" id="score-display">SCORE: 0</div>
+        <div class="hud-panel" id="wave-display">WAVE 1</div>
+      </div>
+      <div class="hud-bottom">
+        <div>
+          <div class="hud-panel" id="weapon-display">PULSE PISTOL | ∞</div>
+          <div class="health-bar-container" style="margin-top:6px;">
+            <div class="health-bar" id="health-bar" style="width:100%"></div>
+          </div>
+        </div>
+        <div class="hud-panel" id="grenades-display">GRENADES: 3</div>
+      </div>
+      <div class="combo-display" id="combo-display">x1</div>
+      <div class="wave-announce" id="wave-announce"></div>
+      <div class="crosshair" id="crosshair"></div>
+    </div>
+    <div id="loading-screen">
+      <h1>LAWN DEFENSE FORCE</h1>
+      <div class="subtitle">Suburban Alien Invasion</div>
+      <button class="start-btn" id="start-btn">START MISSION</button>
+      <div class="subtitle" style="margin-top:20px; font-size:13px; color:#070;">
+        WASD = Move | Mouse = Aim &amp; Shoot | SHIFT = Sprint | SPACE = Dash | R = Reload | G = Grenade
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
