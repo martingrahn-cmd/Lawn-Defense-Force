@@ -4,6 +4,6 @@ const game = new Game();
 
 document.getElementById('start-btn').addEventListener('click', () => {
   document.getElementById('loading-screen').style.display = 'none';
-  document.getElementById('game-container').requestPointerLock?.();
+  document.body.style.cursor = 'none';
   game.start();
 });
