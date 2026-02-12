@@ -12,8 +12,8 @@ export class CameraSystem {
     this.lookAtTarget = new THREE.Vector3();
 
     // Smooth follow
-    this.followSpeed = 4.0;
-    this.leadAmount = 3.0;
+    this.followSpeed = 2.5;
+    this.leadAmount = 0.5;
 
     // Dynamic zoom
     this.baseZoomDist = 1.0;

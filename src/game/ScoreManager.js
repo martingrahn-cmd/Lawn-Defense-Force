@@ -32,6 +32,10 @@ export class ScoreManager {
     return points;
   }
 
+  addScore(points) {
+    this.score += points;
+  }
+
   update(dt) {
     if (this.comboTimer > 0) {
       this.comboTimer -= dt;

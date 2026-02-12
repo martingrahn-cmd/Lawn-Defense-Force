@@ -85,11 +85,11 @@ export class EnemyManager {
     this.waveActive = true;
     this.spawnQueue = [];
 
-    // Wave composition scales with wave number
-    const droneCount = 8 + waveNum * 3;
-    const spitterCount = Math.max(0, Math.floor(waveNum * 1.5) - 1);
-    const bruteCount = waveNum >= 3 ? Math.floor((waveNum - 2) * 0.5) : 0;
-    const bomberCount = waveNum >= 2 ? Math.floor(waveNum * 0.8) : 0;
+    // Wave composition — gentler scaling for mission-based gameplay
+    const droneCount = 3 + waveNum * 2;
+    const spitterCount = waveNum >= 2 ? Math.floor(waveNum * 0.7) : 0;
+    const bruteCount = waveNum >= 4 ? Math.max(1, Math.floor((waveNum - 3) * 0.5)) : 0;
+    const bomberCount = waveNum >= 3 ? Math.max(1, Math.floor((waveNum - 2) * 0.5)) : 0;
 
     for (let i = 0; i < droneCount; i++) this.spawnQueue.push('drone');
     for (let i = 0; i < spitterCount; i++) this.spawnQueue.push('spitter');
