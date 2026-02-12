@@ -16,7 +16,7 @@ import { SuburbanBlock } from '../world/SuburbanBlock.js';
 import { HUD } from '../ui/HUD.js';
 
 export class Game {
-  constructor() {
+  constructor(assets) {
     // Renderer
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -53,8 +53,8 @@ export class Game {
     this.enemyManager = new EnemyManager(this.scene, this.particles, this.audio, this.juice);
     this.missionSystem = new MissionSystem(this.scene);
 
-    // World
-    this.world = new SuburbanBlock(this.scene, this.collision);
+    // World — pass loaded assets for GLB models
+    this.world = new SuburbanBlock(this.scene, this.collision, assets);
     this.world.build();
 
     // State
@@ -165,6 +165,14 @@ export class Game {
       this.grenadeSystem.throw(this.player.position, this.player.aimDirection);
     }
 
+    // Gamepad weapon switching
+    if (this.input.isWeaponNext()) {
+      this.weaponSystem.switchWeapon(1);
+    }
+    if (this.input.isWeaponPrev()) {
+      this.weaponSystem.switchWeapon(-1);
+    }
+
     // Update systems
     const allEnemies = this.enemyManager.enemies.filter(e => e.alive);
     this.weaponSystem.update(dt, allEnemies);
@@ -192,19 +200,26 @@ export class Game {
     const zoomTarget = 1.0 + Math.min(nearbyEnemies.length / 30, 0.3);
     this.cameraSystem.setZoom(zoomTarget);
 
-    // Slowmo on last kill in wave
-    if (this.enemyManager.spawnQueue.length === 0 &&
-        this.enemyManager.getAliveCount() === 1) {
-      // Don't trigger slowmo yet, wait for the kill
-    }
-
     // HUD updates
     this.hud.updateScore(this.scoreManager.score);
     this.hud.updateCombo(this.scoreManager.combo);
     this.hud.updateWeapon(this.weaponSystem.getAmmoDisplay());
     this.hud.updateHealth(this.player.hp, this.player.maxHp);
     this.hud.updateGrenades(this.grenadeSystem.count);
-    this.hud.updateCrosshair(this.input.mouseX, this.input.mouseY);
+
+    // Crosshair: gamepad projects aim point to screen, mouse uses mouse coords
+    if (this.input.isGamepadActive() && this.input.getAimVector()) {
+      const aimPoint = this.player.position.clone().add(
+        this.player.aimDirection.clone().multiplyScalar(10)
+      );
+      aimPoint.y = 1;
+      aimPoint.project(this.cameraSystem.camera);
+      const sx = (aimPoint.x * 0.5 + 0.5) * window.innerWidth;
+      const sy = (-aimPoint.y * 0.5 + 0.5) * window.innerHeight;
+      this.hud.updateCrosshair(sx, sy);
+    } else {
+      this.hud.updateCrosshair(this.input.mouseX, this.input.mouseY);
+    }
 
     // Score popups
     for (const popup of this.scoreManager.popups) {
