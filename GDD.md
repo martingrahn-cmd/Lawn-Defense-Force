@@ -135,6 +135,7 @@ src/
 ## 4. Roadmap
 
 ### Short term (v0.3)
+- [ ] Mission briefing phone calls — NPC video call in HUD corner briefing each mission
 - [ ] Weapon pickups — find new weapons in the world during waves
 - [ ] Ammo pickups — ammo crates/drops to resupply weapons
 - [ ] Proper 3D models (GLTF) instead of boxes

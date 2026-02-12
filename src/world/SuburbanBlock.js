@@ -121,25 +121,25 @@ export class SuburbanBlock {
   }
 
   _buildHouses() {
-    // House configs: [x, z, width, depth, height, color, roofColor]
+    // House configs: [x, z, width, depth, height, color, roofColor, hasGarage]
     const housePositions = [
       // North side (z < -6.5)
-      [-40, -18, 8, 6, 5, 0xeeeeee, 0x884422],
-      [-25, -18, 7, 7, 4.5, 0xddccaa, 0x663333],
-      [-10, -18, 9, 6, 5.5, 0xccddee, 0x444466],
-      [10, -18, 7, 6, 4, 0xffeecc, 0x885533],
-      [25, -18, 8, 7, 5, 0xeeddcc, 0x664422],
-      [40, -18, 7, 6, 4.5, 0xddeedd, 0x446644],
+      [-40, -18, 8, 6, 5, 0xeeeeee, 0x884422, true],
+      [-25, -18, 7, 7, 4.5, 0xddccaa, 0x663333, false],
+      [-10, -18, 9, 6, 5.5, 0xccddee, 0x444466, true],
+      [10, -18, 7, 6, 4, 0xffeecc, 0x885533, false],
+      [25, -18, 8, 7, 5, 0xeeddcc, 0x664422, true],
+      [40, -18, 7, 6, 4.5, 0xddeedd, 0x446644, true],
       // South side (z > 6.5)
-      [-40, 18, 7, 6, 4.5, 0xffeeee, 0x884444],
-      [-25, 18, 8, 7, 5, 0xeeeeff, 0x444488],
-      [-10, 18, 7, 6, 4, 0xeeffee, 0x448844],
-      [10, 18, 9, 7, 5.5, 0xffffee, 0x886644],
-      [25, 18, 7, 6, 4.5, 0xeedddd, 0x664444],
-      [40, 18, 8, 6, 5, 0xddddee, 0x555566],
+      [-40, 18, 7, 6, 4.5, 0xffeeee, 0x884444, false],
+      [-25, 18, 8, 7, 5, 0xeeeeff, 0x444488, true],
+      [-10, 18, 7, 6, 4, 0xeeffee, 0x448844, true],
+      [10, 18, 9, 7, 5.5, 0xffffee, 0x886644, false],
+      [25, 18, 7, 6, 4.5, 0xeedddd, 0x664444, true],
+      [40, 18, 8, 6, 5, 0xddddee, 0x555566, false],
     ];
 
-    for (const [x, z, w, d, h, wallColor, roofColor] of housePositions) {
+    for (const [x, z, w, d, h, wallColor, roofColor, hasGarage] of housePositions) {
       // Main building
       this._addBox(w, h, d, wallColor, x, 0, z);
 
@@ -184,8 +184,8 @@ export class SuburbanBlock {
       drive.receiveShadow = true;
       this.scene.add(drive);
 
-      // Garage (on some houses)
-      if (Math.random() > 0.4) {
+      // Garage
+      if (hasGarage) {
         const gx = x + w / 2 + 1.5;
         const gz = z;
         this._addBox(3, 3, d * 0.7, 0xccccbb, gx, 0, gz);
@@ -395,19 +395,23 @@ export class SuburbanBlock {
     const trunkMat = new THREE.MeshStandardMaterial({ color: 0x664422 });
     const leafGeo = new THREE.SphereGeometry(1.5, 8, 8);
 
-    for (const [x, z] of treePositions) {
+    for (let i = 0; i < treePositions.length; i++) {
+      const [x, z] = treePositions[i];
       const trunk = new THREE.Mesh(trunkGeo, trunkMat);
       trunk.position.set(x, 1, z);
       trunk.castShadow = true;
       this.scene.add(trunk);
 
-      const shade = 0.3 + Math.random() * 0.3;
+      // Deterministic variation based on index
+      const shade = 0.3 + (i % 5) * 0.06;
       const leafMat = new THREE.MeshStandardMaterial({
         color: new THREE.Color(shade * 0.5, shade, shade * 0.3)
       });
       const leaves = new THREE.Mesh(leafGeo, leafMat);
-      leaves.position.set(x, 3.0 + Math.random() * 0.5, z);
-      leaves.scale.set(0.8 + Math.random() * 0.4, 0.8 + Math.random() * 0.4, 0.8 + Math.random() * 0.4);
+      const yOff = (i % 3) * 0.2;
+      const scaleVar = 0.8 + (i % 4) * 0.1;
+      leaves.position.set(x, 3.0 + yOff, z);
+      leaves.scale.set(scaleVar, scaleVar, scaleVar);
       leaves.castShadow = true;
       this.scene.add(leaves);
     }
