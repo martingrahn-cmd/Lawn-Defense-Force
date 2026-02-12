@@ -196,24 +196,24 @@ export class SuburbanBlock {
       'building-i', 'building-j', 'building-k', 'building-l'
     ];
 
-    // Vivid wall colors — clearly distinct per house
+    // Highly saturated wall colors — must survive ACES tone mapping
     const wallColors = [
-      0xf5e6c8, // warm cream
-      0xc8dae8, // sky blue
-      0xe8d5a0, // golden yellow
-      0xa8c8a0, // fresh green
-      0xf0c8a0, // peach
-      0xd0d0d0, // light gray
-      0xe0c8b0, // warm sand
-      0xb0c8e0, // powder blue
-      0xe8e0b0, // lemon
-      0xc0d8b0, // mint
-      0xf0d0b8, // apricot
-      0xd0c0d8, // lavender
+      0xf2c46d, // strong golden yellow
+      0x5b9bd5, // vivid blue
+      0xe8a040, // warm orange
+      0x6bb56b, // strong green
+      0xe07050, // salmon red
+      0xb8b8b8, // neutral gray
+      0xd4a050, // amber
+      0x4da6d4, // cerulean blue
+      0xd4c040, // golden
+      0x55b878, // emerald
+      0xe88050, // burnt orange
+      0x9878b8, // purple
     ];
 
-    // Red roof for all houses
-    const roofColor = new THREE.Color(0xb03020);
+    // Vivid red roof for all houses
+    const roofColor = new THREE.Color(0xcc2200);
 
     // [x, z, targetWidth]
     const positions = [
@@ -239,61 +239,48 @@ export class SuburbanBlock {
         placed.updateMatrixWorld(true);
         const modelBox = new THREE.Box3().setFromObject(placed);
         const modelHeight = modelBox.max.y - modelBox.min.y;
-        const modelWidth = modelBox.max.x - modelBox.min.x;
-        const modelDepth = modelBox.max.z - modelBox.min.z;
         const roofThreshold = modelBox.min.y + modelHeight * 0.55;
         const wallCol = new THREE.Color(wallColors[i]);
-        const windowCol = new THREE.Color(0x445566);
-        const modelVolume = modelHeight * modelWidth * modelDepth;
+        const windowCol = new THREE.Color(0x334455);
 
+        let meshCount = 0;
         placed.traverse((child) => {
           if (!child.isMesh) return;
+          meshCount++;
 
-          // Measure this mesh to classify it
+          // Check mesh center Y to decide roof vs wall
           const meshBox = new THREE.Box3().setFromObject(child);
-          const meshSize = new THREE.Vector3();
-          meshBox.getSize(meshSize);
-          const meshVolume = meshSize.x * meshSize.y * meshSize.z;
           const meshCenterY = (meshBox.min.y + meshBox.max.y) / 2;
-          const volumeRatio = modelVolume > 0 ? meshVolume / modelVolume : 1;
+          const isRoof = meshCenterY > roofThreshold;
 
-          // Classify: very small meshes → windows/details
-          const isSmallDetail = volumeRatio < 0.02;
-          const isRoof = meshCenterY > roofThreshold && !isSmallDetail;
+          // Check mesh/material name for smarter classification
+          const name = ((child.name || '') + ' ' + (child.material?.name || '')).toLowerCase();
+          const isWindow = name.includes('window') || name.includes('glass');
+          const isRoofNamed = name.includes('roof');
 
           let targetColor;
-          if (isSmallDetail) {
+          if (isWindow) {
             targetColor = windowCol;
-          } else if (isRoof) {
+          } else if (isRoof || isRoofNamed) {
             targetColor = roofColor;
           } else {
             targetColor = wallCol;
           }
 
-          // Handle both single materials and material arrays
-          const applyColor = (mat) => {
-            const m = mat.clone();
-            // Strip ALL texture maps for clean flat color
-            m.map = null;
-            m.normalMap = null;
-            m.roughnessMap = null;
-            m.metalnessMap = null;
-            m.aoMap = null;
-            m.emissiveMap = null;
-            // Force clean PBR properties
-            m.metalness = 0;
-            m.roughness = 0.85;
-            m.color.copy(targetColor);
-            m.needsUpdate = true;
-            return m;
-          };
+          // Replace with simple MeshLambertMaterial — no PBR complications
+          const newMat = new THREE.MeshLambertMaterial({
+            color: targetColor,
+          });
 
+          // Handle material arrays
           if (Array.isArray(child.material)) {
-            child.material = child.material.map(applyColor);
+            child.material = child.material.map(() => newMat.clone());
           } else {
-            child.material = applyColor(child.material);
+            child.material = newMat;
           }
         });
+
+        console.log(`[House] ${type}: ${meshCount} meshes, height=${modelHeight.toFixed(1)}, roofAt=${roofThreshold.toFixed(1)}`);
       } else {
         this._addBox(targetWidth, 5, 6, wallColors[i], x, 0, z);
       }
