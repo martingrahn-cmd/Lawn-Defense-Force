@@ -235,52 +235,51 @@ export class SuburbanBlock {
       });
 
       if (placed) {
-        // Compute model dimensions for classification
+        // Compute model dimensions for height-based roof coloring
         placed.updateMatrixWorld(true);
         const modelBox = new THREE.Box3().setFromObject(placed);
         const modelHeight = modelBox.max.y - modelBox.min.y;
-        const roofThreshold = modelBox.min.y + modelHeight * 0.55;
+        // Absolute world-space Y where roof color begins
+        const roofY = modelBox.min.y + modelHeight * 0.55;
         const wallCol = new THREE.Color(wallColors[i]);
-        const windowCol = new THREE.Color(0x334455);
 
-        let meshCount = 0;
         placed.traverse((child) => {
           if (!child.isMesh) return;
-          meshCount++;
 
-          // Check mesh center Y to decide roof vs wall
-          const meshBox = new THREE.Box3().setFromObject(child);
-          const meshCenterY = (meshBox.min.y + meshBox.max.y) / 2;
-          const isRoof = meshCenterY > roofThreshold;
+          // Single mesh per house — use shader to blend wall/roof by height
+          const mat = new THREE.MeshLambertMaterial({ color: wallCol });
 
-          // Check mesh/material name for smarter classification
-          const name = ((child.name || '') + ' ' + (child.material?.name || '')).toLowerCase();
-          const isWindow = name.includes('window') || name.includes('glass');
-          const isRoofNamed = name.includes('roof');
+          mat.onBeforeCompile = (shader) => {
+            shader.uniforms.uRoofColor = { value: roofColor };
+            shader.uniforms.uRoofY = { value: roofY };
 
-          let targetColor;
-          if (isWindow) {
-            targetColor = windowCol;
-          } else if (isRoof || isRoofNamed) {
-            targetColor = roofColor;
-          } else {
-            targetColor = wallCol;
-          }
+            // Pass world-space Y from vertex to fragment
+            shader.vertexShader = shader.vertexShader.replace(
+              '#include <common>',
+              '#include <common>\nvarying float vWorldY;'
+            );
+            shader.vertexShader = shader.vertexShader.replace(
+              '#include <begin_vertex>',
+              '#include <begin_vertex>\nvWorldY = (modelMatrix * vec4(transformed, 1.0)).y;'
+            );
 
-          // Replace with simple MeshLambertMaterial — no PBR complications
-          const newMat = new THREE.MeshLambertMaterial({
-            color: targetColor,
-          });
+            // Blend wall color → roof color based on height
+            shader.fragmentShader = shader.fragmentShader.replace(
+              '#include <common>',
+              '#include <common>\nuniform vec3 uRoofColor;\nuniform float uRoofY;\nvarying float vWorldY;'
+            );
+            shader.fragmentShader = shader.fragmentShader.replace(
+              '#include <color_fragment>',
+              '#include <color_fragment>\nfloat roofMix = smoothstep(uRoofY - 0.3, uRoofY + 0.3, vWorldY);\ndiffuseColor.rgb = mix(diffuseColor.rgb, uRoofColor, roofMix);'
+            );
+          };
 
-          // Handle material arrays
           if (Array.isArray(child.material)) {
-            child.material = child.material.map(() => newMat.clone());
+            child.material = child.material.map(() => mat.clone());
           } else {
-            child.material = newMat;
+            child.material = mat;
           }
         });
-
-        console.log(`[House] ${type}: ${meshCount} meshes, height=${modelHeight.toFixed(1)}, roofAt=${roofThreshold.toFixed(1)}`);
       } else {
         this._addBox(targetWidth, 5, 6, wallColors[i], x, 0, z);
       }
