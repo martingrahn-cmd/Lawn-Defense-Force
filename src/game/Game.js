@@ -87,6 +87,17 @@ export class Game {
       if (e.code === 'Digit2' && this.weaponSystem.unlockedWeapons.length > 1) { this.weaponSystem.currentIndex = 1; this.weaponSystem.currentWeapon = this.weaponSystem.unlockedWeapons[1]; }
       if (e.code === 'Digit3' && this.weaponSystem.unlockedWeapons.length > 2) { this.weaponSystem.currentIndex = 2; this.weaponSystem.currentWeapon = this.weaponSystem.unlockedWeapons[2]; }
     });
+
+    // Toggle controls overlay with H
+    this.controlsOverlay = document.getElementById('controls-overlay');
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'KeyH') {
+        this.controlsOverlay.classList.toggle('hidden');
+      }
+    });
+
+    // Version display
+    document.getElementById('version-display').textContent = `v${__APP_VERSION__}`;
   }
 
   start() {
