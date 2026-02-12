@@ -235,28 +235,63 @@ export class SuburbanBlock {
       });
 
       if (placed) {
-        // Compute model height to distinguish roof from walls
+        // Compute model dimensions for classification
         placed.updateMatrixWorld(true);
         const modelBox = new THREE.Box3().setFromObject(placed);
         const modelHeight = modelBox.max.y - modelBox.min.y;
-        const roofThreshold = modelBox.min.y + modelHeight * 0.6;
+        const modelWidth = modelBox.max.x - modelBox.min.x;
+        const modelDepth = modelBox.max.z - modelBox.min.z;
+        const roofThreshold = modelBox.min.y + modelHeight * 0.55;
         const wallCol = new THREE.Color(wallColors[i]);
+        const windowCol = new THREE.Color(0x445566);
+        const modelVolume = modelHeight * modelWidth * modelDepth;
 
         placed.traverse((child) => {
           if (!child.isMesh) return;
-          // Clone material and strip texture so flat color shows through
-          child.material = child.material.clone();
-          child.material.map = null;
-          child.material.needsUpdate = true;
 
-          // Check mesh center Y to decide roof vs wall
+          // Measure this mesh to classify it
           const meshBox = new THREE.Box3().setFromObject(child);
+          const meshSize = new THREE.Vector3();
+          meshBox.getSize(meshSize);
+          const meshVolume = meshSize.x * meshSize.y * meshSize.z;
           const meshCenterY = (meshBox.min.y + meshBox.max.y) / 2;
+          const volumeRatio = modelVolume > 0 ? meshVolume / modelVolume : 1;
 
-          if (meshCenterY > roofThreshold) {
-            child.material.color.copy(roofColor);
+          // Classify: very small meshes → windows/details
+          const isSmallDetail = volumeRatio < 0.02;
+          const isRoof = meshCenterY > roofThreshold && !isSmallDetail;
+
+          let targetColor;
+          if (isSmallDetail) {
+            targetColor = windowCol;
+          } else if (isRoof) {
+            targetColor = roofColor;
           } else {
-            child.material.color.copy(wallCol);
+            targetColor = wallCol;
+          }
+
+          // Handle both single materials and material arrays
+          const applyColor = (mat) => {
+            const m = mat.clone();
+            // Strip ALL texture maps for clean flat color
+            m.map = null;
+            m.normalMap = null;
+            m.roughnessMap = null;
+            m.metalnessMap = null;
+            m.aoMap = null;
+            m.emissiveMap = null;
+            // Force clean PBR properties
+            m.metalness = 0;
+            m.roughness = 0.85;
+            m.color.copy(targetColor);
+            m.needsUpdate = true;
+            return m;
+          };
+
+          if (Array.isArray(child.material)) {
+            child.material = child.material.map(applyColor);
+          } else {
+            child.material = applyColor(child.material);
           }
         });
       } else {
