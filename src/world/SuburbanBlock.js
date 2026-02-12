@@ -252,21 +252,22 @@ export class SuburbanBlock {
 
   // ==================== CARS (GLB models with colormap) ====================
   _buildCars() {
-    // [x, z, rotationY, modelName, colormapIndex]
-    // colormapIndex cycles through the 4 color variations
+    // [x, z, rotationY, modelName, tintColor]
+    // Cars use their own colormap (different UV layout from houses)
+    // Subtle tints give each car a unique look while preserving the colormap
     const carConfigs = [
-      [-35, -7, 0, 'car-sedan', 0],
-      [-20, -7, 0, 'car-suv', 1],
-      [-5, 7, Math.PI, 'car-hatchback', 2],
-      [15, 7, Math.PI, 'car-sedan-sports', 3],
-      [30, -7, 0, 'car-van', 0],
-      [45, 7, Math.PI, 'car-truck', 2],
-      [-38, -12, Math.PI / 2, 'car-taxi', 1],
-      [12, 12, Math.PI / 2, 'car-suv-luxury', 3],
-      [27, -12, Math.PI / 2, 'car-police', 0],
+      [-35, -7, 0, 'car-sedan', 0xffffff],
+      [-20, -7, 0, 'car-suv', 0xeeeeff],
+      [-5, 7, Math.PI, 'car-hatchback', 0xffeeee],
+      [15, 7, Math.PI, 'car-sedan-sports', 0xeeffee],
+      [30, -7, 0, 'car-van', 0xffeedd],
+      [45, 7, Math.PI, 'car-truck', 0xddeeff],
+      [-38, -12, Math.PI / 2, 'car-taxi', 0xffffff],
+      [12, 12, Math.PI / 2, 'car-suv-luxury', 0xeeeeff],
+      [27, -12, Math.PI / 2, 'car-police', 0xffffff],
     ];
 
-    for (const [x, z, rot, modelName, cmIdx] of carConfigs) {
+    for (const [x, z, rot, modelName, tint] of carConfigs) {
       const placed = this._placeModel(modelName, x, 0, z, {
         targetWidth: 2.0,
         rotationY: rot,
@@ -274,25 +275,20 @@ export class SuburbanBlock {
       });
 
       if (placed) {
-        // Swap colormap variation for color variety (same as houses)
-        const newMap = this.assets
-          ? this.assets.getColormap(cmIdx)
-          : null;
-
+        // Apply subtle tint for variety while keeping original car colormap
+        const tintColor = new THREE.Color(tint);
         placed.traverse((child) => {
           if (!child.isMesh) return;
-          const swapTex = (mat) => {
+          const applyTint = (mat) => {
             const m = mat.clone();
-            if (newMap && m.map) {
-              m.map = newMap;
-              m.needsUpdate = true;
-            }
+            m.color.multiply(tintColor);
+            m.needsUpdate = true;
             return m;
           };
           if (Array.isArray(child.material)) {
-            child.material = child.material.map(swapTex);
+            child.material = child.material.map(applyTint);
           } else {
-            child.material = swapTex(child.material);
+            child.material = applyTint(child.material);
           }
         });
       }
