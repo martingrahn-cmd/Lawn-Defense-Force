@@ -8,10 +8,20 @@ export class InputManager {
     this.justPressed = {};
     this._prevKeys = {};
 
+    // Game keys that should not trigger browser defaults (scroll, find, etc.)
+    this._gameKeys = new Set([
+      'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyR', 'KeyG',
+      'Space', 'ShiftLeft', 'ShiftRight',
+      'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+      'Digit1', 'Digit2', 'Digit3'
+    ]);
+
     window.addEventListener('keydown', (e) => {
+      if (this._gameKeys.has(e.code)) e.preventDefault();
       this.keys[e.code] = true;
     });
     window.addEventListener('keyup', (e) => {
+      if (this._gameKeys.has(e.code)) e.preventDefault();
       this.keys[e.code] = false;
     });
     window.addEventListener('mousemove', (e) => {
