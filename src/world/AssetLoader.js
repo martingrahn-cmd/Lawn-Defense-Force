@@ -82,6 +82,16 @@ export class AssetLoader {
       'path-stones-messy': 'path-stones-messy.glb',
       // Props
       'planter': 'planter.glb',
+      // Cars
+      'car-sedan': 'cars/sedan.glb',
+      'car-sedan-sports': 'cars/sedan-sports.glb',
+      'car-suv': 'cars/suv.glb',
+      'car-suv-luxury': 'cars/suv-luxury.glb',
+      'car-hatchback': 'cars/hatchback-sports.glb',
+      'car-van': 'cars/van.glb',
+      'car-truck': 'cars/truck.glb',
+      'car-taxi': 'cars/taxi.glb',
+      'car-police': 'cars/police.glb',
     };
 
     const total = Object.keys(modelList).length;

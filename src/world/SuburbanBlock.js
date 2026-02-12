@@ -250,54 +250,51 @@ export class SuburbanBlock {
     }
   }
 
-  // ==================== CARS (greybox) ====================
+  // ==================== CARS (GLB models with colormap) ====================
   _buildCars() {
+    // [x, z, rotationY, modelName, colormapIndex]
+    // colormapIndex cycles through the 4 color variations
     const carConfigs = [
-      [-35, -7, 0, 0x3344aa, 'sedan'],
-      [-20, -7, 0, 0xcc3333, 'suv'],
-      [-5, 7, Math.PI, 0x333333, 'sedan'],
-      [15, 7, Math.PI, 0xeeeeee, 'suv'],
-      [30, -7, 0, 0x226622, 'sedan'],
-      [45, 7, Math.PI, 0x664422, 'suv'],
-      [-38, -12, Math.PI / 2, 0x888899, 'sedan'],
-      [12, 12, Math.PI / 2, 0xaa4444, 'suv'],
-      [27, -12, Math.PI / 2, 0x446688, 'sedan'],
+      [-35, -7, 0, 'car-sedan', 0],
+      [-20, -7, 0, 'car-suv', 1],
+      [-5, 7, Math.PI, 'car-hatchback', 2],
+      [15, 7, Math.PI, 'car-sedan-sports', 3],
+      [30, -7, 0, 'car-van', 0],
+      [45, 7, Math.PI, 'car-truck', 2],
+      [-38, -12, Math.PI / 2, 'car-taxi', 1],
+      [12, 12, Math.PI / 2, 'car-suv-luxury', 3],
+      [27, -12, Math.PI / 2, 'car-police', 0],
     ];
 
-    for (const [x, z, rot, color, type] of carConfigs) {
-      const issuv = type === 'suv';
-      const cw = issuv ? 2.2 : 2.0;
-      const ch = issuv ? 1.8 : 1.4;
-      const cd = issuv ? 4.5 : 4.0;
-
-      const body = this._addBox(cw, ch * 0.6, cd, color, x, 0, z, true, true);
-      body.rotation.y = rot;
-
-      const cabinGeo = new THREE.BoxGeometry(cw - 0.3, ch * 0.4, cd * 0.5);
-      const cabinMat = new THREE.MeshStandardMaterial({
-        color: 0x88bbdd,
-        transparent: true,
-        opacity: 0.6
+    for (const [x, z, rot, modelName, cmIdx] of carConfigs) {
+      const placed = this._placeModel(modelName, x, 0, z, {
+        targetWidth: 2.0,
+        rotationY: rot,
+        collision: true
       });
-      const cabin = new THREE.Mesh(cabinGeo, cabinMat);
-      cabin.position.set(x, ch * 0.6 + ch * 0.2, z);
-      cabin.rotation.y = rot;
-      cabin.castShadow = true;
-      this.scene.add(cabin);
 
-      const wheelGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 8);
-      const wheelMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-      const offsets = [
-        [-cw / 2 - 0.1, 0.3, cd / 2 - 0.5],
-        [cw / 2 + 0.1, 0.3, cd / 2 - 0.5],
-        [-cw / 2 - 0.1, 0.3, -cd / 2 + 0.5],
-        [cw / 2 + 0.1, 0.3, -cd / 2 + 0.5],
-      ];
-      for (const [wx, wy, wz] of offsets) {
-        const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-        wheel.rotation.z = Math.PI / 2;
-        wheel.position.set(x + wx, wy, z + wz);
-        this.scene.add(wheel);
+      if (placed) {
+        // Swap colormap variation for color variety (same as houses)
+        const newMap = this.assets
+          ? this.assets.getColormap(cmIdx)
+          : null;
+
+        placed.traverse((child) => {
+          if (!child.isMesh) return;
+          const swapTex = (mat) => {
+            const m = mat.clone();
+            if (newMap && m.map) {
+              m.map = newMap;
+              m.needsUpdate = true;
+            }
+            return m;
+          };
+          if (Array.isArray(child.material)) {
+            child.material = child.material.map(swapTex);
+          } else {
+            child.material = swapTex(child.material);
+          }
+        });
       }
     }
   }
