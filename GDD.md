@@ -135,6 +135,8 @@ src/
 ## 4. Roadmap
 
 ### Short term (v0.3)
+- [ ] Weapon pickups — find new weapons in the world during waves
+- [ ] Ammo pickups — ammo crates/drops to resupply weapons
 - [ ] Proper 3D models (GLTF) instead of boxes
 - [ ] Sound effects and music (assets/audio folder is prepared)
 - [ ] Textures on environment
