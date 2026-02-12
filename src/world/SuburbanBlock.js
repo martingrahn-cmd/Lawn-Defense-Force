@@ -188,7 +188,7 @@ export class SuburbanBlock {
     this.scene.add(crossRoad);
   }
 
-  // ==================== HOUSES (GLB with colors) ====================
+  // ==================== HOUSES (GLB with colormap texture) ====================
   _buildHouses() {
     const buildingTypes = [
       'building-a', 'building-b', 'building-c', 'building-d',
@@ -196,24 +196,22 @@ export class SuburbanBlock {
       'building-i', 'building-j', 'building-k', 'building-l'
     ];
 
-    // Highly saturated wall colors — must survive ACES tone mapping
-    const wallColors = [
-      0xf2c46d, // strong golden yellow
-      0x5b9bd5, // vivid blue
-      0xe8a040, // warm orange
-      0x6bb56b, // strong green
-      0xe07050, // salmon red
-      0xb8b8b8, // neutral gray
-      0xd4a050, // amber
-      0x4da6d4, // cerulean blue
-      0xd4c040, // golden
-      0x55b878, // emerald
-      0xe88050, // burnt orange
-      0x9878b8, // purple
+    // Subtle per-house tints — multiplied with colormap texture
+    // White = no tint. Slight warm/cool shifts give variety.
+    const houseTints = [
+      0xfff5ee, // warm white
+      0xeef0ff, // cool white
+      0xfff8e0, // cream
+      0xe8ffe8, // mint tint
+      0xffe8e0, // blush
+      0xf0f0f0, // neutral
+      0xfff0d8, // warm sand
+      0xe0eeff, // ice blue
+      0xfffff0, // ivory
+      0xe8fff0, // pale green
+      0xffeee8, // peach tint
+      0xf0e8ff, // lavender tint
     ];
-
-    // Vivid red roof for all houses
-    const roofColor = new THREE.Color(0xcc2200);
 
     // [x, z, targetWidth]
     const positions = [
@@ -235,53 +233,27 @@ export class SuburbanBlock {
       });
 
       if (placed) {
-        // Compute model dimensions for height-based roof coloring
-        placed.updateMatrixWorld(true);
-        const modelBox = new THREE.Box3().setFromObject(placed);
-        const modelHeight = modelBox.max.y - modelBox.min.y;
-        // Absolute world-space Y where roof color begins
-        const roofY = modelBox.min.y + modelHeight * 0.55;
-        const wallCol = new THREE.Color(wallColors[i]);
+        // Keep original colormap texture — just apply subtle per-house tint
+        const tint = new THREE.Color(houseTints[i]);
 
         placed.traverse((child) => {
           if (!child.isMesh) return;
 
-          // Single mesh per house — use shader to blend wall/roof by height
-          const mat = new THREE.MeshLambertMaterial({ color: wallCol });
-
-          mat.onBeforeCompile = (shader) => {
-            shader.uniforms.uRoofColor = { value: roofColor };
-            shader.uniforms.uRoofY = { value: roofY };
-
-            // Pass world-space Y from vertex to fragment
-            shader.vertexShader = shader.vertexShader.replace(
-              '#include <common>',
-              '#include <common>\nvarying float vWorldY;'
-            );
-            shader.vertexShader = shader.vertexShader.replace(
-              '#include <begin_vertex>',
-              '#include <begin_vertex>\nvWorldY = (modelMatrix * vec4(transformed, 1.0)).y;'
-            );
-
-            // Blend wall color → roof color based on height
-            shader.fragmentShader = shader.fragmentShader.replace(
-              '#include <common>',
-              '#include <common>\nuniform vec3 uRoofColor;\nuniform float uRoofY;\nvarying float vWorldY;'
-            );
-            shader.fragmentShader = shader.fragmentShader.replace(
-              '#include <color_fragment>',
-              '#include <color_fragment>\nfloat roofMix = smoothstep(uRoofY - 0.3, uRoofY + 0.3, vWorldY);\ndiffuseColor.rgb = mix(diffuseColor.rgb, uRoofColor, roofMix);'
-            );
+          // Clone material so each house is independent
+          const applyTint = (mat) => {
+            const m = mat.clone();
+            m.color.multiply(tint);
+            return m;
           };
 
           if (Array.isArray(child.material)) {
-            child.material = child.material.map(() => mat.clone());
+            child.material = child.material.map(applyTint);
           } else {
-            child.material = mat;
+            child.material = applyTint(child.material);
           }
         });
       } else {
-        this._addBox(targetWidth, 5, 6, wallColors[i], x, 0, z);
+        this._addBox(targetWidth, 5, 6, houseTints[i], x, 0, z);
       }
     }
   }
