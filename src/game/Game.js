@@ -11,6 +11,7 @@ import { WeaponSystem } from './WeaponSystem.js';
 import { GrenadeSystem } from './GrenadeSystem.js';
 import { EnemyManager } from './EnemyManager.js';
 import { ScoreManager } from './ScoreManager.js';
+import { MissionSystem } from './MissionSystem.js';
 import { SuburbanBlock } from '../world/SuburbanBlock.js';
 import { HUD } from '../ui/HUD.js';
 
@@ -50,6 +51,7 @@ export class Game {
     );
     this.grenadeSystem = new GrenadeSystem(this.scene, this.particles, this.audio, this.juice);
     this.enemyManager = new EnemyManager(this.scene, this.particles, this.audio, this.juice);
+    this.missionSystem = new MissionSystem(this.scene);
 
     // World
     this.world = new SuburbanBlock(this.scene, this.collision);
@@ -106,6 +108,7 @@ export class Game {
     this.wave = 1;
     this.hud.announceWave(this.wave);
     this.enemyManager.startWave(this.wave);
+    this.missionSystem.startMission(this.wave);
     this.clock.start();
     this._loop();
   }
@@ -169,6 +172,17 @@ export class Game {
     this.enemyManager.update(dt, this.player.position, this.player, this.scoreManager);
     this.scoreManager.update(dt);
 
+    // Mission system
+    const missionResult = this.missionSystem.update(dt, this.player.position);
+    if (missionResult && missionResult.type === 'complete') {
+      this.scoreManager.addScore(missionResult.points);
+      this.hud.announceMissionComplete(missionResult.label, missionResult.points);
+      this.player.heal(15);
+    }
+    const missionInfo = this.missionSystem.getMissionInfo();
+    const missionDist = this.missionSystem.getDistanceTo(this.player.position);
+    this.hud.updateMission(missionInfo, missionDist);
+
     // Dynamic camera zoom based on enemy count
     const nearbyEnemies = allEnemies.filter(e => {
       const dx = e.position.x - this.player.position.x;
@@ -208,13 +222,17 @@ export class Game {
       // Slowmo for wave end
       this.juice.slowmo(0.8, 0.2);
       this.state = 'wavePause';
-      this.wavePauseTimer = 4;
+      this.wavePauseTimer = 6;
+      this.missionSystem.clearMission();
+      this.hud.hideMission();
     }
 
     // Game over
     if (!this.player.alive) {
       this.state = 'gameOver';
       this.enemyManager.clearAll();
+      this.missionSystem.clearMission();
+      this.hud.hideMission();
       this.hud.showGameOver(
         this.scoreManager.score,
         this.scoreManager.kills,
@@ -234,9 +252,10 @@ export class Game {
       this.hud.announceWave(this.wave);
       this.hud.updateWave(this.wave);
       this.enemyManager.startWave(this.wave);
+      this.missionSystem.startMission(this.wave);
 
-      // Heal player a bit between waves
-      this.player.heal(20);
+      // Heal player between waves
+      this.player.heal(30);
       // Add grenades
       this.grenadeSystem.addGrenades(1);
     }

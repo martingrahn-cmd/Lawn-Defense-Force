@@ -1,18 +1,19 @@
 # Lawn Defense Force — Game Design Document
 
-**Version:** 0.1.0
-**Genre:** Isometric Twin-Stick Shooter
+**Version:** 0.2.0
+**Genre:** Isometric Twin-Stick Shooter med uppdrag
 **Platform:** Web (Desktop browsers)
 **Engine:** Three.js + Vite
-**Status:** Early playable prototype
+**Status:** Spelbar prototyp med uppdragssystem
+**Inspiration:** Zombies Ate My Neighbors, Alienation, Helldivers
 
 ---
 
 ## 1. Koncept
 
-Du är en förortsbo som försvarar sitt kvarter mot vågor av utomjordiska fiender. Med ett arsenal av vapen, granater och snabba reflexer överlever du så länge som möjligt medan du samlar poäng och klättrar i rank.
+Du är en förortsbo som försvarar sitt kvarter mot vågor av utomjordiska fiender. Varje wave kommer med ett uppdrag — rädda katten, hjälp grannen, hämta paketet — som ger bonuspoäng och läkning om du klarar det medan du håller fienderna borta. Inspirerat av klassiker som Zombies Ate My Neighbors, Alienation och Helldivers: strid + uppdrag i varje wave.
 
-## 2. Nuvarande funktioner (v0.1.0)
+## 2. Nuvarande funktioner (v0.2.0)
 
 ### Spelmekanik
 - **Rörelse:** WASD med sprint (Shift) och dash (Space, 0.15s, ger osynlighet)
@@ -28,19 +29,32 @@ Du är en förortsbo som försvarar sitt kvarter mot vågor av utomjordiska fien
 - Dynamisk zoom baserat på antal fiender i närheten
 - Screenshake vid skott, explosioner och skada
 
-### Fiender (4 typer)
+### Fiender (4 typer, balanserade i v0.2)
 | Typ | HP | Hastighet | Skada | Beteende |
 |-----|-----|-----------|-------|----------|
-| **Drone** | 20 | 5.0 | 10 | Svärm med flocking-AI, melee |
+| **Drone** | 20 | 4.0 | 10 | Svärm med flocking-AI (lägre aggression), melee |
 | **Spitter** | 40 | 3.0 | 15 | Ranged projektiler |
 | **Brute** | 150 | 2.5 | 30 | Långsam tank, melee |
-| **Bomber** | 15 | 7.0 | 50 | Kamikaze, exploderar vid kontakt |
+| **Bomber** | 15 | 5.0 | 30 | Kamikaze, exploderar vid kontakt (nerfad i v0.2) |
 
 ### Wave-system
-- Progressiv svårighetsökning per wave
-- Drones från wave 1, Bombers från wave 2, Brutes från wave 3
-- 4 sekunders paus mellan waves med läkning (+20 HP) och granater (+1)
+- Mjukare svårighetsökning per wave (ca hälften av v0.1)
+- Drones från wave 1, Spitters från wave 2, Bombers från wave 3, Brutes från wave 4
+- 6 sekunders paus mellan waves med läkning (+30 HP) och granater (+1)
 - Slowmo-effekt vid wave clear
+
+### Uppdragssystem (nytt i v0.2)
+- Varje wave genererar ett valfritt uppdrag med bonuspoäng
+- **Uppdragstyper:**
+  - Rädda katten / hunden (gå dit, instant pickup)
+  - Rädda grannen (håll position 3s)
+  - Hämta paketet / verktygslådan / nycklarna (gå dit, instant pickup)
+  - Försvara grillen / bilen (håll position 4–5s)
+- Uppdragsmål visas som lysande markör (pelare + roterande diamant + markring) i världen
+- Proximity-trigger: gå nära målet för att interagera
+- Ger bonuspoäng (400–1000) och +15 HP vid klarning
+- HUD visar uppdragstext, avstånd, progress-bar för hålltid
+- "MISSION COMPLETE" annonsering vid klarning
 
 ### Poängsystem
 - Kill-poäng: Drone 100, Spitter 250, Brute 500, Bomber 200
@@ -88,6 +102,7 @@ src/
 │   ├── GrenadeSystem.js # Granater
 │   ├── EnemyManager.js  # Wave-spawning, fiendepool
 │   ├── ScoreManager.js  # Poäng, combo, rank
+│   ├── MissionSystem.js # Uppdragssystem (nytt i v0.2)
 │   └── enemies/         # Drone, Spitter, Brute, Bomber
 ├── systems/
 │   ├── InputManager.js  # Tangentbord + mus
@@ -160,3 +175,15 @@ src/
 - Nytt: Version-nummer synligt i spelet (nedre högra hörnet)
 - Nytt: Kontroll-overlay (toggle med H)
 - Nytt: GDD-dokumentation
+
+### v0.2.0 (2026-02-12)
+- Nytt: **Uppdragssystem** — varje wave har ett uppdrag (rädda katten, hjälp grannen, hämta paketet etc.)
+- Nytt: Uppdragsmarkörer i 3D-världen (ljuspelare, roterande diamant, markring)
+- Nytt: Uppdragspanel i HUD med mål, avstånd och progress
+- Nytt: "MISSION COMPLETE" annonsering med bonuspoäng
+- Balans: Drone hastighet 5→4, Bomber hastighet 7→5, Bomber skada 50→30
+- Balans: Drone flocking-aggression sänkt (targetWeight 3→2)
+- Balans: Mjukare wave-skalning (~50% färre fiender per wave)
+- Balans: Bombers från wave 3 (var 2), Brutes från wave 4 (var 3)
+- Balans: Wave-paus ökad till 6s, läkning ökad till +30 HP
+- Design: Inspiration från Zombies Ate My Neighbors, Alienation, Helldivers

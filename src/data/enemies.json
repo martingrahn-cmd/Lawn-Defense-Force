@@ -2,7 +2,7 @@
   "drone": {
     "name": "Drone",
     "hp": 20,
-    "speed": 5.0,
+    "speed": 4.0,
     "damage": 10,
     "attackRange": 1.2,
     "attackCooldown": 0.8,
@@ -38,8 +38,8 @@
   "bomber": {
     "name": "Bomber",
     "hp": 15,
-    "speed": 7.0,
-    "damage": 50,
+    "speed": 5.0,
+    "damage": 30,
     "attackRange": 1.5,
     "attackCooldown": 0,
     "radius": 0.5,

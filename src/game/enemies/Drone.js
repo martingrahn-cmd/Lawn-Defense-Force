@@ -42,7 +42,7 @@ export class Drone {
     this.separationWeight = 2.0;
     this.cohesionWeight = 0.3;
     this.alignmentWeight = 0.5;
-    this.targetWeight = 3.0;
+    this.targetWeight = 2.0;
     this.bobPhase = Math.random() * Math.PI * 2;
   }
 

@@ -110,6 +110,25 @@
       </div>
       <div class="combo-display" id="combo-display">x1</div>
       <div class="wave-announce" id="wave-announce"></div>
+      <div id="mission-panel" style="
+        position:absolute; top:60px; left:50%; transform:translateX(-50%);
+        background:rgba(0,0,0,0.75); border:1px solid rgba(255,170,0,0.5);
+        padding:8px 24px; color:#fa0; font-size:16px; font-family:monospace;
+        border-radius:4px; display:none; text-align:center; z-index:10;
+      ">
+        <div id="mission-label" style="font-weight:bold;"></div>
+        <div id="mission-detail" style="font-size:11px; color:#888; margin-top:2px;"></div>
+        <div id="mission-progress-wrap" style="display:none; margin-top:4px;">
+          <div style="width:150px; height:6px; background:rgba(255,255,255,0.15); border-radius:3px; margin:0 auto;">
+            <div id="mission-progress-bar" style="width:0%; height:100%; background:#fa0; border-radius:3px; transition:width 0.1s;"></div>
+          </div>
+        </div>
+      </div>
+      <div id="mission-complete-announce" style="
+        position:absolute; top:25%; left:50%; transform:translate(-50%,-50%);
+        font-size:36px; color:#0f0; font-weight:bold; text-shadow:0 0 20px #0f0;
+        opacity:0; pointer-events:none; font-family:monospace; z-index:10;
+      "></div>
       <div class="crosshair" id="crosshair"></div>
       <div id="controls-overlay">
         <div class="title">CONTROLS</div>
