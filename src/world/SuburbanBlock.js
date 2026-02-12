@@ -196,24 +196,24 @@ export class SuburbanBlock {
       'building-i', 'building-j', 'building-k', 'building-l'
     ];
 
-    // Wall colors — each house gets a distinct suburban palette
+    // Vivid wall colors — clearly distinct per house
     const wallColors = [
-      0xdecbb7, // warm beige
-      0xc4d4e0, // light blue-gray
-      0xe8dcc8, // cream
-      0xb8c9a3, // sage green
-      0xf2e2c4, // pale yellow
-      0xd4b8a0, // tan
-      0xe0d0c0, // light khaki
-      0xbfc8d6, // cool gray-blue
-      0xd6c4a8, // sand
-      0xc8dbb4, // soft green
-      0xf0dcc0, // ivory
-      0xccb8a8, // dusty rose beige
+      0xf5e6c8, // warm cream
+      0xc8dae8, // sky blue
+      0xe8d5a0, // golden yellow
+      0xa8c8a0, // fresh green
+      0xf0c8a0, // peach
+      0xd0d0d0, // light gray
+      0xe0c8b0, // warm sand
+      0xb0c8e0, // powder blue
+      0xe8e0b0, // lemon
+      0xc0d8b0, // mint
+      0xf0d0b8, // apricot
+      0xd0c0d8, // lavender
     ];
 
-    // Shared roof color across all houses
-    const roofColor = new THREE.Color(0x6b4a3a); // warm brown
+    // Red roof for all houses
+    const roofColor = new THREE.Color(0xb03020);
 
     // [x, z, targetWidth]
     const positions = [
@@ -235,17 +235,19 @@ export class SuburbanBlock {
       });
 
       if (placed) {
-        // Colorize: compute model height to distinguish roof from walls
+        // Compute model height to distinguish roof from walls
         placed.updateMatrixWorld(true);
         const modelBox = new THREE.Box3().setFromObject(placed);
         const modelHeight = modelBox.max.y - modelBox.min.y;
-        const roofThreshold = modelBox.min.y + modelHeight * 0.65;
+        const roofThreshold = modelBox.min.y + modelHeight * 0.6;
         const wallCol = new THREE.Color(wallColors[i]);
 
         placed.traverse((child) => {
           if (!child.isMesh) return;
-          // Clone material so each house is independent
+          // Clone material and strip texture so flat color shows through
           child.material = child.material.clone();
+          child.material.map = null;
+          child.material.needsUpdate = true;
 
           // Check mesh center Y to decide roof vs wall
           const meshBox = new THREE.Box3().setFromObject(child);

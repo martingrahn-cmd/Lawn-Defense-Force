@@ -12,13 +12,45 @@ startBtn.textContent = 'LOADING...';
 
 const assets = new AssetLoader();
 
+// Gamepad polling for menus — checks A (0) or Start (9) button
+function pollGamepadForButton(callback) {
+  let prevA = false;
+  let prevStart = false;
+
+  function poll() {
+    const gamepads = navigator.getGamepads();
+    for (const gp of gamepads) {
+      if (!gp || gp.buttons.length < 2) continue;
+      const aDown = gp.buttons[0].pressed;
+      const startDown = gp.buttons.length > 9 && gp.buttons[9].pressed;
+
+      // Detect rising edge (just pressed)
+      if ((aDown && !prevA) || (startDown && !prevStart)) {
+        prevA = aDown;
+        prevStart = startDown;
+        callback();
+        return; // stop polling
+      }
+      prevA = aDown;
+      prevStart = startDown;
+    }
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+}
+
+function startGame(game) {
+  document.getElementById('loading-screen').style.display = 'none';
+  document.body.style.cursor = 'none';
+  game.start();
+}
+
 assets.loadAll((loaded, total) => {
   const pct = Math.floor((loaded / total) * 100);
   if (progressBar) progressBar.style.width = `${pct}%`;
   if (loadingText) loadingText.textContent = `Loading models... ${loaded}/${total}`;
   startBtn.textContent = `LOADING ${pct}%`;
 }).then(() => {
-  // Assets loaded — create game
   if (loadingText) loadingText.textContent = 'Ready!';
   if (progressBar) progressBar.style.width = '100%';
 
@@ -28,24 +60,24 @@ assets.loadAll((loaded, total) => {
   startBtn.style.opacity = '1';
   startBtn.textContent = 'START MISSION';
 
-  startBtn.addEventListener('click', () => {
-    document.getElementById('loading-screen').style.display = 'none';
-    document.body.style.cursor = 'none';
-    game.start();
+  // Mouse/keyboard start
+  startBtn.addEventListener('click', () => startGame(game));
+
+  // Gamepad start — poll for A or Start button
+  pollGamepadForButton(() => {
+    if (!startBtn.disabled) startGame(game);
   });
 }).catch((err) => {
   console.error('Failed to load assets:', err);
   if (loadingText) loadingText.textContent = 'Load error — starting with greybox...';
 
-  // Fallback: start without assets
   const game = new Game(null);
   startBtn.disabled = false;
   startBtn.style.opacity = '1';
   startBtn.textContent = 'START MISSION';
 
-  startBtn.addEventListener('click', () => {
-    document.getElementById('loading-screen').style.display = 'none';
-    document.body.style.cursor = 'none';
-    game.start();
+  startBtn.addEventListener('click', () => startGame(game));
+  pollGamepadForButton(() => {
+    if (!startBtn.disabled) startGame(game);
   });
 });

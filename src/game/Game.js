@@ -128,6 +128,12 @@ export class Game {
       this._updatePlaying(dt, rawDt);
     } else if (this.state === 'wavePause') {
       this._updateWavePause(dt, rawDt);
+    } else if (this.state === 'gameOver') {
+      // Gamepad or keyboard retry
+      if (this.input.gamepad.wasButtonPressed(0) || this.input.gamepad.wasButtonPressed(9)
+          || this.input.wasPressed('Enter') || this.input.wasPressed('Space')) {
+        location.reload();
+      }
     }
 
     // Always update these
