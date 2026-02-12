@@ -102,7 +102,7 @@ export class WeaponSystem {
       dir.normalize();
 
       p.mesh.position.copy(origin);
-      p.mesh.position.y = 0.8;
+      p.mesh.position.y = 0.6;
       p.velocity.copy(dir).multiplyScalar(w.projectileSpeed);
       p.mesh.lookAt(p.mesh.position.clone().add(dir));
       p.mesh.material.color.setRGB(w.color[0], w.color[1], w.color[2]);
@@ -123,7 +123,7 @@ export class WeaponSystem {
 
     // Muzzle flash
     const flashPos = origin.clone();
-    flashPos.y = 0.8;
+    flashPos.y = 0.6;
     flashPos.add(direction.clone().multiplyScalar(0.8));
     this.lighting.addMuzzleFlash(flashPos);
     this.particles.muzzleFlash(flashPos, direction);
@@ -174,13 +174,14 @@ export class WeaponSystem {
         continue;
       }
 
-      // Check enemy collision
+      // Check enemy collision (circle vs circle with projectile radius)
       let hitEnemy = false;
       for (const enemy of enemies) {
         if (!enemy.alive) continue;
         const dx = p.mesh.position.x - enemy.mesh.position.x;
         const dz = p.mesh.position.z - enemy.mesh.position.z;
-        if (dx * dx + dz * dz < enemy.radius * enemy.radius) {
+        const hitRadius = enemy.radius + 0.2;
+        if (dx * dx + dz * dz < hitRadius * hitRadius) {
           enemy.takeDamage(p.damage);
           hitEnemy = true;
           break;
