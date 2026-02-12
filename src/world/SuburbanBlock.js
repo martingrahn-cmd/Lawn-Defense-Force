@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 
-// Suburban greybox: houses, roads, cars, fences, mailboxes, props
 export class SuburbanBlock {
-  constructor(scene, collisionSystem) {
+  constructor(scene, collisionSystem, assets) {
     this.scene = scene;
     this.collision = collisionSystem;
+    this.assets = assets;
     this.objects = [];
     this.destructibles = [];
   }
@@ -15,10 +15,13 @@ export class SuburbanBlock {
     this._buildHouses();
     this._buildCars();
     this._buildFences();
-    this._buildProps();
     this._buildTrees();
+    this._buildDriveways();
+    this._buildPaths();
+    this._buildProps();
   }
 
+  // --- Utility: place a greybox ---
   _addBox(w, h, d, color, x, y, z, collision = true, destructible = false) {
     const geo = new THREE.BoxGeometry(w, h, d);
     const mat = new THREE.MeshStandardMaterial({ color });
@@ -52,8 +55,73 @@ export class SuburbanBlock {
     return mesh;
   }
 
+  // --- Utility: place a GLB model ---
+  _placeModel(name, x, y, z, options = {}) {
+    const data = this.assets ? this.assets.getModel(name) : null;
+    if (!data) return null;
+
+    const model = data.scene;
+
+    // Determine scale factor
+    let scaleFactor = options.scale || 1;
+    if (options.targetWidth && data.size.x > 0) {
+      scaleFactor = options.targetWidth / data.size.x;
+    } else if (options.targetHeight && data.size.y > 0) {
+      scaleFactor = options.targetHeight / data.size.y;
+    } else if (options.targetDepth && data.size.z > 0) {
+      scaleFactor = options.targetDepth / data.size.z;
+    }
+    model.scale.setScalar(scaleFactor);
+
+    // Apply rotation before computing bounds
+    if (options.rotationY !== undefined) {
+      model.rotation.y = options.rotationY;
+    }
+
+    // Compute bounds at origin to center the model
+    model.position.set(0, 0, 0);
+    model.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(model);
+
+    // Center model at (x, z) with bottom at y
+    const centerX = (bounds.min.x + bounds.max.x) / 2;
+    const centerZ = (bounds.min.z + bounds.max.z) / 2;
+    model.position.set(
+      x - centerX,
+      y - bounds.min.y,
+      z - centerZ
+    );
+
+    this.scene.add(model);
+    this.objects.push(model);
+
+    // Collision from world-space bounding box
+    if (options.collision !== false) {
+      model.updateMatrixWorld(true);
+      const worldBox = new THREE.Box3().setFromObject(model);
+      this.collision.addStatic({
+        min: { x: worldBox.min.x, z: worldBox.min.z },
+        max: { x: worldBox.max.x, z: worldBox.max.z },
+        type: options.destructible ? 'destructible' : 'solid',
+        ref: model,
+        hp: options.destructible ? 30 : Infinity
+      });
+    }
+
+    if (options.destructible) {
+      this.destructibles.push({
+        mesh: model,
+        hp: 30,
+        alive: true,
+        position: new THREE.Vector3(x, y, z)
+      });
+    }
+
+    return model;
+  }
+
+  // ==================== GROUND ====================
   _buildGround() {
-    // Main grass area
     const grassGeo = new THREE.PlaneGeometry(120, 100);
     const grassMat = new THREE.MeshStandardMaterial({
       color: 0x4a8c3f,
@@ -65,7 +133,6 @@ export class SuburbanBlock {
     this.scene.add(grass);
     this.objects.push(grass);
 
-    // Grid lines for greybox feel
     const gridHelper = new THREE.GridHelper(120, 60, 0x3a7c2f, 0x3a7c2f);
     gridHelper.position.y = 0.01;
     gridHelper.material.opacity = 0.15;
@@ -73,6 +140,7 @@ export class SuburbanBlock {
     this.scene.add(gridHelper);
   }
 
+  // ==================== ROADS ====================
   _buildRoads() {
     const roadMat = new THREE.MeshStandardMaterial({
       color: 0x444444,
@@ -120,92 +188,52 @@ export class SuburbanBlock {
     this.scene.add(crossRoad);
   }
 
+  // ==================== HOUSES (GLB) ====================
   _buildHouses() {
-    // House configs: [x, z, width, depth, height, color, roofColor]
-    const housePositions = [
-      // North side (z < -6.5)
-      [-40, -18, 8, 6, 5, 0xeeeeee, 0x884422],
-      [-25, -18, 7, 7, 4.5, 0xddccaa, 0x663333],
-      [-10, -18, 9, 6, 5.5, 0xccddee, 0x444466],
-      [10, -18, 7, 6, 4, 0xffeecc, 0x885533],
-      [25, -18, 8, 7, 5, 0xeeddcc, 0x664422],
-      [40, -18, 7, 6, 4.5, 0xddeedd, 0x446644],
-      // South side (z > 6.5)
-      [-40, 18, 7, 6, 4.5, 0xffeeee, 0x884444],
-      [-25, 18, 8, 7, 5, 0xeeeeff, 0x444488],
-      [-10, 18, 7, 6, 4, 0xeeffee, 0x448844],
-      [10, 18, 9, 7, 5.5, 0xffffee, 0x886644],
-      [25, 18, 7, 6, 4.5, 0xeedddd, 0x664444],
-      [40, 18, 8, 6, 5, 0xddddee, 0x555566],
+    // Assign a unique building type to each position
+    const buildingTypes = [
+      'building-a', 'building-b', 'building-c', 'building-d',
+      'building-e', 'building-f', 'building-g', 'building-h',
+      'building-i', 'building-j', 'building-k', 'building-l'
     ];
 
-    for (const [x, z, w, d, h, wallColor, roofColor] of housePositions) {
-      // Main building
-      this._addBox(w, h, d, wallColor, x, 0, z);
+    // [x, z, targetWidth]
+    const positions = [
+      // North side (face south toward road)
+      [-40, -18, 8], [-25, -18, 7], [-10, -18, 9],
+      [10, -18, 7],  [25, -18, 8],  [40, -18, 7],
+      // South side (face north toward road)
+      [-40, 18, 7],  [-25, 18, 8],  [-10, 18, 7],
+      [10, 18, 9],   [25, 18, 7],   [40, 18, 8],
+    ];
 
-      // Roof (triangle approximated by thin box at angle)
-      const roofGeo = new THREE.BoxGeometry(w + 0.5, 0.3, d + 0.5);
-      const roofMat = new THREE.MeshStandardMaterial({ color: roofColor });
-      const roof = new THREE.Mesh(roofGeo, roofMat);
-      roof.position.set(x, h + 0.5, z);
-      roof.castShadow = true;
-      this.scene.add(roof);
+    for (let i = 0; i < positions.length; i++) {
+      const [x, z, targetWidth] = positions[i];
+      const type = buildingTypes[i];
+      const rotY = z > 0 ? Math.PI : 0; // face the road
 
-      // Roof peak
-      const peakGeo = new THREE.BoxGeometry(w * 0.3, 1.5, d + 0.3);
-      const peak = new THREE.Mesh(peakGeo, roofMat);
-      peak.position.set(x, h + 1.2, z);
-      peak.castShadow = true;
-      this.scene.add(peak);
-
-      // Door
-      this._addBox(1.0, 2.2, 0.1, 0x664422, x, 0, z + d / 2 + 0.05, false);
-
-      // Windows
-      const winMat = new THREE.MeshStandardMaterial({
-        color: 0x88bbee,
-        emissive: 0x223344,
-        emissiveIntensity: 0.3
-      });
-      const winGeo = new THREE.BoxGeometry(1.0, 1.0, 0.1);
-
-      [-1.5, 1.5].forEach(wx => {
-        const win = new THREE.Mesh(winGeo, winMat);
-        win.position.set(x + wx, 2.5, z + d / 2 + 0.05);
-        this.scene.add(win);
+      const placed = this._placeModel(type, x, 0, z, {
+        targetWidth,
+        rotationY: rotY,
+        collision: true
       });
 
-      // Driveway
-      const driveGeo = new THREE.PlaneGeometry(3, d / 2);
-      const driveMat = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.9 });
-      const drive = new THREE.Mesh(driveGeo, driveMat);
-      drive.rotation.x = -Math.PI / 2;
-      drive.position.set(x + w / 2 - 1, 0.015, z + d / 4 + (z > 0 ? -d / 2 : d / 2));
-      drive.receiveShadow = true;
-      this.scene.add(drive);
-
-      // Garage (on some houses)
-      if (Math.random() > 0.4) {
-        const gx = x + w / 2 + 1.5;
-        const gz = z;
-        this._addBox(3, 3, d * 0.7, 0xccccbb, gx, 0, gz);
-
-        // Garage door
-        this._addBox(2.5, 2.5, 0.1, 0x888877, gx, 0, gz + d * 0.35 + 0.05, false);
+      // Fallback to greybox if model failed to load
+      if (!placed) {
+        this._addBox(targetWidth, 5, 6, 0xeeeeee, x, 0, z);
       }
     }
   }
 
+  // ==================== CARS (greybox) ====================
   _buildCars() {
     const carConfigs = [
-      // [x, z, rotation, color, type]
       [-35, -7, 0, 0x3344aa, 'sedan'],
       [-20, -7, 0, 0xcc3333, 'suv'],
       [-5, 7, Math.PI, 0x333333, 'sedan'],
       [15, 7, Math.PI, 0xeeeeee, 'suv'],
       [30, -7, 0, 0x226622, 'sedan'],
       [45, 7, Math.PI, 0x664422, 'suv'],
-      // Parked in driveways
       [-38, -12, Math.PI / 2, 0x888899, 'sedan'],
       [12, 12, Math.PI / 2, 0xaa4444, 'suv'],
       [27, -12, Math.PI / 2, 0x446688, 'sedan'],
@@ -217,11 +245,9 @@ export class SuburbanBlock {
       const ch = issuv ? 1.8 : 1.4;
       const cd = issuv ? 4.5 : 4.0;
 
-      // Body
       const body = this._addBox(cw, ch * 0.6, cd, color, x, 0, z, true, true);
       body.rotation.y = rot;
 
-      // Cabin
       const cabinGeo = new THREE.BoxGeometry(cw - 0.3, ch * 0.4, cd * 0.5);
       const cabinMat = new THREE.MeshStandardMaterial({
         color: 0x88bbdd,
@@ -234,7 +260,6 @@ export class SuburbanBlock {
       cabin.castShadow = true;
       this.scene.add(cabin);
 
-      // Wheels
       const wheelGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 8);
       const wheelMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
       const offsets = [
@@ -252,39 +277,140 @@ export class SuburbanBlock {
     }
   }
 
+  // ==================== FENCES (GLB) ====================
   _buildFences() {
-    const fenceColor = 0xddddcc;
-    const fenceH = 1.0;
-
-    // Fences along property lines
+    // Front fences along properties — use fence-1x4 (longest single-row)
     const fenceSegments = [
-      // North side front fences
-      [-44, -14, 8, 'x'], [-28.5, -14, 7, 'x'], [-14, -14, 8, 'x'],
-      [6.5, -14, 7, 'x'], [21.5, -14, 7, 'x'], [36.5, -14, 7, 'x'],
+      // North side front fences: [x, z, length]
+      [-44, -14, 8], [-28.5, -14, 7], [-14, -14, 8],
+      [6.5, -14, 7], [21.5, -14, 7], [36.5, -14, 7],
       // South side front fences
-      [-43.5, 14, 7, 'x'], [-29, 14, 8, 'x'], [-13.5, 14, 7, 'x'],
-      [6, 14, 8, 'x'], [21, 14, 7, 'x'], [36, 14, 8, 'x'],
+      [-43.5, 14, 7], [-29, 14, 8], [-13.5, 14, 7],
+      [6, 14, 8], [21, 14, 7], [36, 14, 8],
     ];
 
-    for (const [x, z, len, dir] of fenceSegments) {
-      if (dir === 'x') {
-        this._addBox(len, fenceH, 0.15, fenceColor, x, 0, z, true, true);
-      } else {
-        this._addBox(0.15, fenceH, len, fenceColor, x, 0, z, true, true);
-      }
+    const fenceModel = 'fence-1x4';
 
-      // Fence posts
-      for (let i = 0; i < len; i += 2) {
-        const post = this._addBox(0.15, fenceH + 0.2, 0.15, 0xaa9977,
-          dir === 'x' ? x - len / 2 + i : x,
-          0,
-          dir === 'x' ? z : z - len / 2 + i,
-          false
-        );
+    for (let i = 0; i < fenceSegments.length; i++) {
+      const [x, z, len] = fenceSegments[i];
+
+      const placed = this._placeModel(fenceModel, x, 0, z, {
+        targetWidth: len,
+        collision: true,
+        destructible: true
+      });
+
+      // Fallback to greybox
+      if (!placed) {
+        this._addBox(len, 1.0, 0.15, 0xddddcc, x, 0, z, true, true);
+        for (let p = 0; p < len; p += 2) {
+          this._addBox(0.15, 1.2, 0.15, 0xaa9977, x - len / 2 + p, 0, z, false);
+        }
       }
     }
   }
 
+  // ==================== TREES (GLB) ====================
+  _buildTrees() {
+    const treePositions = [
+      [-45, -10], [-32, -10], [-18, -10], [5, -10], [18, -10], [33, -10], [48, -10],
+      [-45, 10], [-32, 10], [-18, 10], [5, 10], [18, 10], [33, 10], [48, 10],
+      [-42, -22], [-12, -22], [15, -24], [38, -22],
+      [-38, 22], [-8, 24], [22, 22], [44, 24],
+    ];
+
+    for (let i = 0; i < treePositions.length; i++) {
+      const [x, z] = treePositions[i];
+      const type = i % 2 === 0 ? 'tree-large' : 'tree-small';
+      // Target height: large ~4.5, small ~3.0
+      const targetHeight = type === 'tree-large' ? 4.5 : 3.0;
+
+      const placed = this._placeModel(type, x, 0, z, {
+        targetHeight,
+        collision: false
+      });
+
+      // Fallback to greybox
+      if (!placed) {
+        const shade = 0.3 + (i % 5) * 0.06;
+        const trunkGeo = new THREE.CylinderGeometry(0.2, 0.3, 2, 6);
+        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x664422 });
+        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+        trunk.position.set(x, 1, z);
+        trunk.castShadow = true;
+        this.scene.add(trunk);
+
+        const leafGeo = new THREE.SphereGeometry(1.5, 8, 8);
+        const leafMat = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(shade * 0.5, shade, shade * 0.3)
+        });
+        const leaves = new THREE.Mesh(leafGeo, leafMat);
+        leaves.position.set(x, 3.0, z);
+        leaves.castShadow = true;
+        this.scene.add(leaves);
+      }
+    }
+  }
+
+  // ==================== DRIVEWAYS (GLB) ====================
+  _buildDriveways() {
+    // Place driveways connecting road to each house
+    const drivePositions = [
+      // North side: driveway goes from road (z=-6.5) toward house (z=-18)
+      [-38, -11, 'long'], [-23, -11, 'short'], [-8, -11, 'long'],
+      [12, -11, 'short'], [27, -11, 'long'], [42, -11, 'short'],
+      // South side: driveway goes from road (z=6.5) toward house (z=18)
+      [-38, 11, 'long'], [-23, 11, 'short'], [-8, 11, 'long'],
+      [12, 11, 'short'], [27, 11, 'long'], [42, 11, 'short'],
+    ];
+
+    for (const [x, z, size] of drivePositions) {
+      const type = size === 'long' ? 'driveway-long' : 'driveway-short';
+      const targetWidth = 3;
+      const rotY = z > 0 ? 0 : Math.PI;
+
+      const placed = this._placeModel(type, x, 0.01, z, {
+        targetWidth,
+        rotationY: rotY,
+        collision: false
+      });
+
+      // Fallback to greybox
+      if (!placed) {
+        const driveGeo = new THREE.PlaneGeometry(3, 5);
+        const driveMat = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.9 });
+        const drive = new THREE.Mesh(driveGeo, driveMat);
+        drive.rotation.x = -Math.PI / 2;
+        drive.position.set(x, 0.015, z);
+        drive.receiveShadow = true;
+        this.scene.add(drive);
+      }
+    }
+  }
+
+  // ==================== PATHS (GLB) ====================
+  _buildPaths() {
+    // Front walkways from road to each house
+    const pathPositions = [
+      // North side
+      [-40, -11, 'path-stones-short'], [-25, -11, 'path-short'],
+      [-10, -11, 'path-stones-long'], [10, -11, 'path-short'],
+      [25, -11, 'path-stones-messy'], [40, -11, 'path-long'],
+      // South side
+      [-40, 11, 'path-long'], [-25, 11, 'path-stones-short'],
+      [-10, 11, 'path-short'], [10, 11, 'path-stones-long'],
+      [25, 11, 'path-stones-messy'], [40, 11, 'path-short'],
+    ];
+
+    for (const [x, z, type] of pathPositions) {
+      this._placeModel(type, x, 0.01, z, {
+        targetWidth: 1.5,
+        collision: false
+      });
+    }
+  }
+
+  // ==================== PROPS (greybox + GLB planters) ====================
   _buildProps() {
     // Mailboxes
     const mailboxPositions = [
@@ -292,9 +418,7 @@ export class SuburbanBlock {
       [-40, 8], [-25, 8], [-10, 8], [10, 8], [25, 8], [40, 8],
     ];
     for (const [x, z] of mailboxPositions) {
-      // Post
       this._addBox(0.1, 1.0, 0.1, 0x666666, x + 3, 0, z, false);
-      // Box
       this._addBox(0.4, 0.3, 0.25, 0x2244aa, x + 3, 1.0, z, true, true);
     }
 
@@ -305,7 +429,6 @@ export class SuburbanBlock {
     ];
     for (const [x, z] of trashPositions) {
       this._addBox(0.6, 1.0, 0.6, 0x445544, x, 0, z, true, true);
-      // Lid
       this._addBox(0.7, 0.1, 0.7, 0x556655, x, 1.0, z, false);
     }
 
@@ -313,7 +436,6 @@ export class SuburbanBlock {
     const grillPositions = [[-22, -12], [18, 16], [42, -14]];
     for (const [x, z] of grillPositions) {
       this._addBox(0.8, 0.8, 0.5, 0x222222, x, 0, z, true, true);
-      // Lid dome
       const domeGeo = new THREE.SphereGeometry(0.45, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2);
       const domeMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
       const dome = new THREE.Mesh(domeGeo, domeMat);
@@ -322,10 +444,22 @@ export class SuburbanBlock {
       this.scene.add(dome);
     }
 
+    // Planters (GLB)
+    const planterPositions = [
+      [-35, -15], [-15, -15], [20, -15], [38, -15],
+      [-35, 15], [-15, 15], [20, 15], [38, 15],
+    ];
+    for (const [x, z] of planterPositions) {
+      this._placeModel('planter', x, 0, z, {
+        targetHeight: 0.8,
+        collision: true,
+        destructible: true
+      });
+    }
+
     // Trampolines
     const trampolinePositions = [[35, -14], [-15, 16]];
     for (const [x, z] of trampolinePositions) {
-      // Frame
       const frameGeo = new THREE.TorusGeometry(1.5, 0.08, 8, 16);
       const frameMat = new THREE.MeshStandardMaterial({ color: 0x666666 });
       const frame = new THREE.Mesh(frameGeo, frameMat);
@@ -333,7 +467,6 @@ export class SuburbanBlock {
       frame.position.set(x, 0.8, z);
       this.scene.add(frame);
 
-      // Surface
       const surfGeo = new THREE.CircleGeometry(1.4, 16);
       const surfMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
       const surf = new THREE.Mesh(surfGeo, surfMat);
@@ -341,10 +474,9 @@ export class SuburbanBlock {
       surf.position.set(x, 0.78, z);
       this.scene.add(surf);
 
-      // Legs
       for (let i = 0; i < 6; i++) {
         const angle = (i / 6) * Math.PI * 2;
-        const leg = this._addBox(0.08, 0.8, 0.08, 0x666666,
+        this._addBox(0.08, 0.8, 0.08, 0x666666,
           x + Math.cos(angle) * 1.4, 0, z + Math.sin(angle) * 1.4, false
         );
       }
@@ -353,14 +485,12 @@ export class SuburbanBlock {
     // Pools
     const poolPositions = [[-30, -16], [20, 17]];
     for (const [x, z] of poolPositions) {
-      // Pool walls
       const poolGeo = new THREE.BoxGeometry(5, 0.5, 3);
       const poolMat = new THREE.MeshStandardMaterial({ color: 0xaabbcc });
       const pool = new THREE.Mesh(poolGeo, poolMat);
       pool.position.set(x, 0.25, z);
       this.scene.add(pool);
 
-      // Water
       const waterGeo = new THREE.PlaneGeometry(4.8, 2.8);
       const waterMat = new THREE.MeshStandardMaterial({
         color: 0x4488cc,
@@ -373,43 +503,11 @@ export class SuburbanBlock {
       water.position.set(x, 0.45, z);
       this.scene.add(water);
 
-      // Collision
       this.collision.addStatic({
         min: { x: x - 2.5, z: z - 1.5 },
         max: { x: x + 2.5, z: z + 1.5 },
         type: 'solid'
       });
-    }
-  }
-
-  _buildTrees() {
-    const treePositions = [
-      [-45, -10], [-32, -10], [-18, -10], [5, -10], [18, -10], [33, -10], [48, -10],
-      [-45, 10], [-32, 10], [-18, 10], [5, 10], [18, 10], [33, 10], [48, 10],
-      // Backyard trees
-      [-42, -22], [-12, -22], [15, -24], [38, -22],
-      [-38, 22], [-8, 24], [22, 22], [44, 24],
-    ];
-
-    const trunkGeo = new THREE.CylinderGeometry(0.2, 0.3, 2, 6);
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x664422 });
-    const leafGeo = new THREE.SphereGeometry(1.5, 8, 8);
-
-    for (const [x, z] of treePositions) {
-      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-      trunk.position.set(x, 1, z);
-      trunk.castShadow = true;
-      this.scene.add(trunk);
-
-      const shade = 0.3 + Math.random() * 0.3;
-      const leafMat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(shade * 0.5, shade, shade * 0.3)
-      });
-      const leaves = new THREE.Mesh(leafGeo, leafMat);
-      leaves.position.set(x, 3.0 + Math.random() * 0.5, z);
-      leaves.scale.set(0.8 + Math.random() * 0.4, 0.8 + Math.random() * 0.4, 0.8 + Math.random() * 0.4);
-      leaves.castShadow = true;
-      this.scene.add(leaves);
     }
   }
 }

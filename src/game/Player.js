@@ -126,14 +126,19 @@ export class Player {
     this.position.x = resolved.x;
     this.position.z = resolved.z;
 
-    // Aim at mouse
-    const worldPos = mouseToWorld(input.mouseX, input.mouseY, camera);
-    if (worldPos) {
-      this.aimDirection.set(
-        worldPos.x - this.position.x,
-        0,
-        worldPos.z - this.position.z
-      ).normalize();
+    // Aim: prefer gamepad right stick if active, else mouse
+    const aimVec = input.getAimVector();
+    if (aimVec) {
+      this.aimDirection.set(aimVec.x, 0, aimVec.z).normalize();
+    } else {
+      const worldPos = mouseToWorld(input.mouseX, input.mouseY, camera);
+      if (worldPos) {
+        this.aimDirection.set(
+          worldPos.x - this.position.x,
+          0,
+          worldPos.z - this.position.z
+        ).normalize();
+      }
     }
 
     // Update mesh
