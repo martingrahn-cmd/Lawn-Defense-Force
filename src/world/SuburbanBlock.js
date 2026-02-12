@@ -196,22 +196,9 @@ export class SuburbanBlock {
       'building-i', 'building-j', 'building-k', 'building-l'
     ];
 
-    // Subtle per-house tints — multiplied with colormap texture
-    // White = no tint. Slight warm/cool shifts give variety.
-    const houseTints = [
-      0xfff5ee, // warm white
-      0xeef0ff, // cool white
-      0xfff8e0, // cream
-      0xe8ffe8, // mint tint
-      0xffe8e0, // blush
-      0xf0f0f0, // neutral
-      0xfff0d8, // warm sand
-      0xe0eeff, // ice blue
-      0xfffff0, // ivory
-      0xe8fff0, // pale green
-      0xffeee8, // peach tint
-      0xf0e8ff, // lavender tint
-    ];
+    // Assign colormap variations to each house (cycles through available textures)
+    // 0=colormap, 1=variation-a, 2=variation-b, 3=variation-c
+    const colormapIndices = [0, 1, 2, 3, 0, 2, 1, 3, 2, 0, 3, 1];
 
     // [x, z, targetWidth]
     const positions = [
@@ -233,23 +220,28 @@ export class SuburbanBlock {
       });
 
       if (placed) {
-        // Keep original colormap texture — just apply subtle per-house tint
-        const tint = new THREE.Color(houseTints[i]);
+        // Swap colormap texture to give each house a different color variation
+        const newMap = this.assets
+          ? this.assets.getColormap(colormapIndices[i])
+          : null;
 
         placed.traverse((child) => {
           if (!child.isMesh) return;
 
           // Clone material so each house is independent
-          const applyTint = (mat) => {
+          const swapTexture = (mat) => {
             const m = mat.clone();
-            m.color.multiply(tint);
+            if (newMap && m.map) {
+              m.map = newMap;
+              m.needsUpdate = true;
+            }
             return m;
           };
 
           if (Array.isArray(child.material)) {
-            child.material = child.material.map(applyTint);
+            child.material = child.material.map(swapTexture);
           } else {
-            child.material = applyTint(child.material);
+            child.material = swapTexture(child.material);
           }
         });
       } else {
