@@ -1,14 +1,18 @@
 import { AssetLoader } from './world/AssetLoader.js';
 import { Game } from './game/Game.js';
+import { Editor } from './editor/Editor.js';
 
 const startBtn = document.getElementById('start-btn');
+const editorBtn = document.getElementById('editor-btn');
 const progressBar = document.getElementById('loading-progress-bar');
 const loadingText = document.getElementById('loading-text');
 
-// Disable start button during asset loading
+// Disable buttons during asset loading
 startBtn.disabled = true;
 startBtn.style.opacity = '0.4';
 startBtn.textContent = 'LOADING...';
+editorBtn.disabled = true;
+editorBtn.style.opacity = '0.4';
 
 const assets = new AssetLoader();
 
@@ -45,6 +49,13 @@ function startGame(game) {
   game.start();
 }
 
+function startEditor(assets) {
+  document.getElementById('loading-screen').style.display = 'none';
+  document.body.style.cursor = '';
+  const container = document.getElementById('game-container');
+  new Editor(container, assets);
+}
+
 assets.loadAll((loaded, total) => {
   const pct = Math.floor((loaded / total) * 100);
   if (progressBar) progressBar.style.width = `${pct}%`;
@@ -60,8 +71,12 @@ assets.loadAll((loaded, total) => {
   startBtn.style.opacity = '1';
   startBtn.textContent = 'START MISSION';
 
+  editorBtn.disabled = false;
+  editorBtn.style.opacity = '1';
+
   // Mouse/keyboard start
   startBtn.addEventListener('click', () => startGame(game));
+  editorBtn.addEventListener('click', () => startEditor(assets));
 
   // Gamepad start — poll for A or Start button
   pollGamepadForButton(() => {
@@ -76,7 +91,11 @@ assets.loadAll((loaded, total) => {
   startBtn.style.opacity = '1';
   startBtn.textContent = 'START MISSION';
 
+  editorBtn.disabled = false;
+  editorBtn.style.opacity = '1';
+
   startBtn.addEventListener('click', () => startGame(game));
+  editorBtn.addEventListener('click', () => startEditor(null));
   pollGamepadForButton(() => {
     if (!startBtn.disabled) startGame(game);
   });
