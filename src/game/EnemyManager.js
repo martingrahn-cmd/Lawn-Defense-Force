@@ -169,7 +169,10 @@ export class EnemyManager {
     // Check dead enemies
     for (const enemy of this.enemies) {
       if (enemy.alive) continue;
-      if (enemy.mesh.visible) continue; // already processed
+      if (enemy.deathProcessed) continue;
+
+      // Mark as processed so we only score once
+      enemy.deathProcessed = true;
 
       // Death effects
       const pos = enemy.mesh.position || enemy.position;

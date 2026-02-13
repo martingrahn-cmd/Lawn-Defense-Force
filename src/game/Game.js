@@ -128,6 +128,12 @@ export class Game {
       this._updatePlaying(dt, rawDt);
     } else if (this.state === 'wavePause') {
       this._updateWavePause(dt, rawDt);
+    } else if (this.state === 'gameOver') {
+      // Gamepad or keyboard retry
+      if (this.input.gamepad.wasButtonPressed(0) || this.input.gamepad.wasButtonPressed(9)
+          || this.input.wasPressed('Enter') || this.input.wasPressed('Space')) {
+        location.reload();
+      }
     }
 
     // Always update these
@@ -259,6 +265,13 @@ export class Game {
 
   _updateWavePause(dt, rawDt) {
     this.player.update(dt, this.input, this.cameraSystem.camera, this.collision);
+
+    // Allow reload between waves
+    if (this.input.isReloading()) {
+      this.weaponSystem.reload();
+    }
+    this.weaponSystem.update(dt, []);
+    this.hud.updateWeapon(this.weaponSystem.getAmmoDisplay());
 
     this.wavePauseTimer -= rawDt;
     if (this.wavePauseTimer <= 0) {

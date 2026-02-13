@@ -31,25 +31,28 @@ export class MissionSystem {
   _createDirectionArrow() {
     const group = new THREE.Group();
 
-    // Arrow cone (points along +Z)
-    const coneGeo = new THREE.ConeGeometry(0.2, 0.5, 4);
+    // Arrow cone — pushed far from the player so it won't overlap the weapon
+    const coneGeo = new THREE.ConeGeometry(0.3, 0.7, 4);
     const coneMat = new THREE.MeshBasicMaterial({
       color: 0xffaa00,
       transparent: true,
-      opacity: 0.85
+      opacity: 0.85,
+      depthTest: false
     });
     const cone = new THREE.Mesh(coneGeo, coneMat);
     cone.rotation.x = Math.PI / 2; // point along Z
-    cone.position.z = 2.2;
+    cone.position.z = 5.0;
+    cone.renderOrder = 999;
     group.add(cone);
 
     // Shaft
-    const shaftGeo = new THREE.BoxGeometry(0.08, 0.08, 0.6);
+    const shaftGeo = new THREE.BoxGeometry(0.1, 0.1, 1.0);
     const shaft = new THREE.Mesh(shaftGeo, coneMat);
-    shaft.position.z = 1.7;
+    shaft.position.z = 4.2;
+    shaft.renderOrder = 999;
     group.add(shaft);
 
-    group.position.y = 0.15;
+    group.position.y = 0.5;
     this.scene.add(group);
     return group;
   }
@@ -155,9 +158,9 @@ export class MissionSystem {
     this.dirArrow.rotation.y = angle;
     this.dirArrow.visible = true;
 
-    // Pulse arrow opacity based on distance
+    // Fade arrow opacity based on distance — hide when very close
     const toDist = Math.sqrt(toDx * toDx + toDz * toDz);
-    const arrowOpacity = toDist < 3 ? 0.2 : 0.85;
+    const arrowOpacity = toDist < 5 ? 0.15 : 0.85;
     this.dirArrow.children.forEach(c => {
       if (c.material) c.material.opacity = arrowOpacity;
     });

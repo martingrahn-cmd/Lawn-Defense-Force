@@ -107,11 +107,14 @@ export class HUD {
       <div style="color:#0f0; font-size:24px; margin:8px;">KILLS: ${kills}</div>
       <div style="color:#0f0; font-size:24px; margin:8px;">MAX COMBO: x${maxCombo}</div>
       <div style="color:#fa0; font-size:48px; margin:20px;">RANK: ${rank}</div>
-      <button onclick="location.reload()" style="
+      <button id="retry-btn" onclick="location.reload()" style="
         margin-top:30px; padding:15px 40px; font-size:24px;
         background:transparent; border:2px solid #0f0; color:#0f0;
         cursor:pointer; font-family:monospace;
       ">RETRY</button>
+      <div style="color:#070; font-size:13px; margin-top:12px; font-family:monospace;">
+        Press A or ENTER to retry
+      </div>
     `;
     this.hudEl.appendChild(overlay);
   }

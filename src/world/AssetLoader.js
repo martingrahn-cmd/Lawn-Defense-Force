@@ -4,11 +4,36 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 export class AssetLoader {
   constructor() {
     this.loader = new GLTFLoader();
+    this.textureLoader = new THREE.TextureLoader();
     this.models = {};
+    this.colormaps = [];  // loaded colormap variations
   }
 
   async loadAll(onProgress) {
     const basePath = import.meta.env.BASE_URL + 'models/';
+
+    // Load colormap texture variations
+    const colormapFiles = [
+      'Textures/colormap.png',
+      'Textures/variation-a.png',
+      'Textures/variation-b.png',
+      'Textures/variation-c.png',
+    ];
+    const texPromises = colormapFiles.map((file) =>
+      new Promise((resolve) => {
+        this.textureLoader.load(
+          basePath + file,
+          (tex) => {
+            tex.colorSpace = THREE.SRGBColorSpace;
+            tex.flipY = false; // GLB textures are not flipped
+            resolve(tex);
+          },
+          undefined,
+          () => resolve(null)
+        );
+      })
+    );
+    this.colormaps = (await Promise.all(texPromises)).filter(Boolean);
 
     const modelList = {
       // Buildings (21 types)
@@ -57,6 +82,16 @@ export class AssetLoader {
       'path-stones-messy': 'path-stones-messy.glb',
       // Props
       'planter': 'planter.glb',
+      // Cars
+      'car-sedan': 'cars/sedan.glb',
+      'car-sedan-sports': 'cars/sedan-sports.glb',
+      'car-suv': 'cars/suv.glb',
+      'car-suv-luxury': 'cars/suv-luxury.glb',
+      'car-hatchback': 'cars/hatchback-sports.glb',
+      'car-van': 'cars/van.glb',
+      'car-truck': 'cars/truck.glb',
+      'car-taxi': 'cars/taxi.glb',
+      'car-police': 'cars/police.glb',
     };
 
     const total = Object.keys(modelList).length;
@@ -112,5 +147,10 @@ export class AssetLoader {
       size: data.size.clone(),
       box: data.box.clone()
     };
+  }
+
+  getColormap(index) {
+    if (this.colormaps.length === 0) return null;
+    return this.colormaps[index % this.colormaps.length];
   }
 }

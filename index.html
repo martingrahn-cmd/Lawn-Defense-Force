@@ -90,6 +90,101 @@
       font-size: 13px; font-weight: bold; margin-bottom: 6px;
       border-bottom: 1px solid rgba(0,255,0,0.3); padding-bottom: 4px;
     }
+
+    /* ═══ EDITOR BUTTON ON START SCREEN ═══ */
+    #loading-screen .editor-btn {
+      padding: 10px 30px; font-size: 16px; background: transparent;
+      border: 2px solid #0a0; color: #0a0; cursor: pointer;
+      font-family: monospace; pointer-events: all; transition: all 0.2s;
+      margin-top: 10px;
+    }
+    #loading-screen .editor-btn:hover { background: #0a0; color: #000; }
+    #loading-screen .editor-btn:disabled { cursor: default; }
+
+    /* ═══ EDITOR UI ═══ */
+    #editor-ui {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; font-family: monospace; z-index: 50;
+    }
+    #editor-ui * { pointer-events: all; }
+
+    #ed-toolbar {
+      position: absolute; top: 0; left: 0; right: 0; height: 40px;
+      background: rgba(0,0,0,0.85); border-bottom: 1px solid rgba(0,255,0,0.3);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 10px; gap: 6px;
+    }
+    .ed-tool-group { display: flex; align-items: center; gap: 4px; }
+    .ed-btn {
+      padding: 4px 10px; font-size: 12px; background: rgba(0,255,0,0.1);
+      border: 1px solid rgba(0,255,0,0.3); color: #0f0; cursor: pointer;
+      font-family: monospace; border-radius: 3px; transition: all 0.15s;
+    }
+    .ed-btn:hover { background: rgba(0,255,0,0.25); }
+    .ed-btn.active { background: rgba(0,255,0,0.3); border-color: #0f0; }
+    .ed-btn-red { color: #f44; border-color: rgba(255,68,68,0.4); background: rgba(255,0,0,0.1); }
+    .ed-btn-red:hover { background: rgba(255,0,0,0.25); }
+    .ed-sep { width: 1px; height: 20px; background: rgba(0,255,0,0.2); margin: 0 4px; }
+    .ed-coords { color: rgba(0,255,0,0.5); font-size: 11px; margin-left: 8px; }
+
+    #ed-palette {
+      position: absolute; top: 40px; left: 0; bottom: 0; width: 220px;
+      background: rgba(0,0,0,0.85); border-right: 1px solid rgba(0,255,0,0.3);
+      overflow-y: auto; overflow-x: hidden;
+    }
+    .ed-palette-title {
+      padding: 8px 12px; font-size: 14px; color: #0f0; font-weight: bold;
+      border-bottom: 1px solid rgba(0,255,0,0.2);
+    }
+    .ed-cat-header {
+      padding: 6px 12px; font-size: 12px; color: #0a0; cursor: pointer;
+      background: rgba(0,255,0,0.05); border-bottom: 1px solid rgba(0,255,0,0.1);
+      user-select: none;
+    }
+    .ed-cat-header:hover { background: rgba(0,255,0,0.1); }
+    .ed-cat-header.collapsed::before { content: '+ '; }
+    .ed-cat-header:not(.collapsed)::before { content: '- '; }
+    .ed-asset-item {
+      padding: 4px 8px 4px 12px; font-size: 11px; color: #0c0;
+      cursor: pointer; white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis; display: flex; align-items: center; gap: 6px;
+    }
+    .ed-asset-item:hover { background: rgba(0,255,0,0.1); }
+    .ed-asset-item.active { background: rgba(0,255,0,0.25); color: #fff; }
+    .ed-thumb {
+      width: 40px; height: 40px; flex-shrink: 0;
+      border: 1px solid rgba(0,255,0,0.2); border-radius: 2px;
+      background: rgba(0,0,0,0.3); image-rendering: auto;
+    }
+
+    #ed-props {
+      position: absolute; bottom: 0; right: 0; width: 260px;
+      background: rgba(0,0,0,0.85); border-top: 1px solid rgba(0,255,0,0.3);
+      border-left: 1px solid rgba(0,255,0,0.3); padding: 8px 12px;
+    }
+    .ed-props-title {
+      font-size: 13px; color: #0f0; font-weight: bold; margin-bottom: 6px;
+      border-bottom: 1px solid rgba(0,255,0,0.2); padding-bottom: 4px;
+    }
+    .ed-prop-row {
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 4px; font-size: 12px; color: #0c0;
+    }
+    .ed-prop-row label { width: 45px; text-align: right; color: #0a0; flex-shrink: 0; }
+    .ed-prop-row input {
+      width: 80px; background: rgba(0,255,0,0.1); border: 1px solid rgba(0,255,0,0.3);
+      color: #0f0; padding: 2px 6px; font-size: 12px; font-family: monospace;
+      border-radius: 2px; outline: none;
+    }
+    .ed-prop-row input:focus { border-color: #0f0; }
+    .ed-prop-row span { color: #0f0; font-size: 11px; }
+
+    #ed-dropzone {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,40,0,0.8); display: flex; align-items: center;
+      justify-content: center; font-size: 24px; color: #0f0;
+      border: 4px dashed #0f0; z-index: 100;
+    }
   </style>
 </head>
 <body>
@@ -159,6 +254,7 @@
       <h1>LAWN DEFENSE FORCE</h1>
       <div class="subtitle">Suburban Alien Invasion</div>
       <button class="start-btn" id="start-btn">START MISSION</button>
+      <button class="editor-btn" id="editor-btn" disabled>LEVEL EDITOR</button>
       <div id="loading-progress" style="width:300px; height:4px; background:#222; margin-top:15px; border-radius:2px;">
         <div id="loading-progress-bar" style="width:0%; height:100%; background:#0f0; border-radius:2px; transition:width 0.1s;"></div>
       </div>

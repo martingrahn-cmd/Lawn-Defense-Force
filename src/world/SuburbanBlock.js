@@ -188,21 +188,22 @@ export class SuburbanBlock {
     this.scene.add(crossRoad);
   }
 
-  // ==================== HOUSES (GLB) ====================
+  // ==================== HOUSES (GLB with colormap texture) ====================
   _buildHouses() {
-    // Assign a unique building type to each position
     const buildingTypes = [
       'building-a', 'building-b', 'building-c', 'building-d',
       'building-e', 'building-f', 'building-g', 'building-h',
       'building-i', 'building-j', 'building-k', 'building-l'
     ];
 
+    // Assign colormap variations to each house (cycles through available textures)
+    // 0=colormap, 1=variation-a, 2=variation-b, 3=variation-c
+    const colormapIndices = [0, 1, 2, 3, 0, 2, 1, 3, 2, 0, 3, 1];
+
     // [x, z, targetWidth]
     const positions = [
-      // North side (face south toward road)
       [-40, -18, 8], [-25, -18, 7], [-10, -18, 9],
       [10, -18, 7],  [25, -18, 8],  [40, -18, 7],
-      // South side (face north toward road)
       [-40, 18, 7],  [-25, 18, 8],  [-10, 18, 7],
       [10, 18, 9],   [25, 18, 7],   [40, 18, 8],
     ];
@@ -210,7 +211,7 @@ export class SuburbanBlock {
     for (let i = 0; i < positions.length; i++) {
       const [x, z, targetWidth] = positions[i];
       const type = buildingTypes[i];
-      const rotY = z > 0 ? Math.PI : 0; // face the road
+      const rotY = z > 0 ? Math.PI : 0;
 
       const placed = this._placeModel(type, x, 0, z, {
         targetWidth,
@@ -218,94 +219,148 @@ export class SuburbanBlock {
         collision: true
       });
 
-      // Fallback to greybox if model failed to load
-      if (!placed) {
-        this._addBox(targetWidth, 5, 6, 0xeeeeee, x, 0, z);
+      if (placed) {
+        // Swap colormap texture to give each house a different color variation
+        const newMap = this.assets
+          ? this.assets.getColormap(colormapIndices[i])
+          : null;
+
+        placed.traverse((child) => {
+          if (!child.isMesh) return;
+
+          // Clone material so each house is independent
+          const swapTexture = (mat) => {
+            const m = mat.clone();
+            if (newMap && m.map) {
+              m.map = newMap;
+              m.needsUpdate = true;
+            }
+            return m;
+          };
+
+          if (Array.isArray(child.material)) {
+            child.material = child.material.map(swapTexture);
+          } else {
+            child.material = swapTexture(child.material);
+          }
+        });
+      } else {
+        this._addBox(targetWidth, 5, 6, houseTints[i], x, 0, z);
       }
     }
   }
 
-  // ==================== CARS (greybox) ====================
+  // ==================== CARS (GLB models with colormap) ====================
   _buildCars() {
+    // [x, z, rotationY, modelName, tintColor]
+    // Cars use their own colormap (different UV layout from houses)
+    // Subtle tints give each car a unique look while preserving the colormap
     const carConfigs = [
-      [-35, -7, 0, 0x3344aa, 'sedan'],
-      [-20, -7, 0, 0xcc3333, 'suv'],
-      [-5, 7, Math.PI, 0x333333, 'sedan'],
-      [15, 7, Math.PI, 0xeeeeee, 'suv'],
-      [30, -7, 0, 0x226622, 'sedan'],
-      [45, 7, Math.PI, 0x664422, 'suv'],
-      [-38, -12, Math.PI / 2, 0x888899, 'sedan'],
-      [12, 12, Math.PI / 2, 0xaa4444, 'suv'],
-      [27, -12, Math.PI / 2, 0x446688, 'sedan'],
+      [-35, -7, 0, 'car-sedan', 0xffffff],
+      [-20, -7, 0, 'car-suv', 0xeeeeff],
+      [-5, 7, Math.PI, 'car-hatchback', 0xffeeee],
+      [15, 7, Math.PI, 'car-sedan-sports', 0xeeffee],
+      [30, -7, 0, 'car-van', 0xffeedd],
+      [45, 7, Math.PI, 'car-truck', 0xddeeff],
+      [-38, -12, Math.PI / 2, 'car-taxi', 0xffffff],
+      [12, 12, Math.PI / 2, 'car-suv-luxury', 0xeeeeff],
+      [27, -12, Math.PI / 2, 'car-police', 0xffffff],
     ];
 
-    for (const [x, z, rot, color, type] of carConfigs) {
-      const issuv = type === 'suv';
-      const cw = issuv ? 2.2 : 2.0;
-      const ch = issuv ? 1.8 : 1.4;
-      const cd = issuv ? 4.5 : 4.0;
-
-      const body = this._addBox(cw, ch * 0.6, cd, color, x, 0, z, true, true);
-      body.rotation.y = rot;
-
-      const cabinGeo = new THREE.BoxGeometry(cw - 0.3, ch * 0.4, cd * 0.5);
-      const cabinMat = new THREE.MeshStandardMaterial({
-        color: 0x88bbdd,
-        transparent: true,
-        opacity: 0.6
+    for (const [x, z, rot, modelName, tint] of carConfigs) {
+      const placed = this._placeModel(modelName, x, 0, z, {
+        targetWidth: 2.0,
+        rotationY: rot,
+        collision: true
       });
-      const cabin = new THREE.Mesh(cabinGeo, cabinMat);
-      cabin.position.set(x, ch * 0.6 + ch * 0.2, z);
-      cabin.rotation.y = rot;
-      cabin.castShadow = true;
-      this.scene.add(cabin);
 
-      const wheelGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 8);
-      const wheelMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-      const offsets = [
-        [-cw / 2 - 0.1, 0.3, cd / 2 - 0.5],
-        [cw / 2 + 0.1, 0.3, cd / 2 - 0.5],
-        [-cw / 2 - 0.1, 0.3, -cd / 2 + 0.5],
-        [cw / 2 + 0.1, 0.3, -cd / 2 + 0.5],
-      ];
-      for (const [wx, wy, wz] of offsets) {
-        const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-        wheel.rotation.z = Math.PI / 2;
-        wheel.position.set(x + wx, wy, z + wz);
-        this.scene.add(wheel);
+      if (placed) {
+        // Apply subtle tint for variety while keeping original car colormap
+        const tintColor = new THREE.Color(tint);
+        placed.traverse((child) => {
+          if (!child.isMesh) return;
+          const applyTint = (mat) => {
+            const m = mat.clone();
+            m.color.multiply(tintColor);
+            m.needsUpdate = true;
+            return m;
+          };
+          if (Array.isArray(child.material)) {
+            child.material = child.material.map(applyTint);
+          } else {
+            child.material = applyTint(child.material);
+          }
+        });
       }
     }
   }
 
   // ==================== FENCES (GLB) ====================
   _buildFences() {
-    // Front fences along properties — use fence-1x4 (longest single-row)
-    const fenceSegments = [
-      // North side front fences: [x, z, length]
+    // Front fences along properties: [x, z, length]
+    const frontFences = [
+      // North side
       [-44, -14, 8], [-28.5, -14, 7], [-14, -14, 8],
       [6.5, -14, 7], [21.5, -14, 7], [36.5, -14, 7],
-      // South side front fences
+      // South side
       [-43.5, 14, 7], [-29, 14, 8], [-13.5, 14, 7],
       [6, 14, 8], [21, 14, 7], [36, 14, 8],
     ];
 
-    const fenceModel = 'fence-1x4';
+    for (const [x, z, len] of frontFences) {
+      this._placeFenceSegment(x, z, len, 'fence-1x4', 0);
+    }
 
-    for (let i = 0; i < fenceSegments.length; i++) {
-      const [x, z, len] = fenceSegments[i];
+    // Side fences running front-to-back for some yards: [x, z, length, rotY]
+    // These create enclosed garden areas for select properties
+    const sideFences = [
+      // North side: left/right edges of properties (run along Z axis)
+      [-44, -16, 5, Math.PI / 2],  [-36, -16, 5, Math.PI / 2],  // House 0
+      [-14, -16, 5, Math.PI / 2],  [-6, -16, 5, Math.PI / 2],   // House 2
+      [21, -16, 5, Math.PI / 2],   [29, -16, 5, Math.PI / 2],   // House 4
+      // South side
+      [-44, 16, 5, Math.PI / 2],   [-36, 16, 5, Math.PI / 2],   // House 6
+      [6, 16, 5, Math.PI / 2],     [14, 16, 5, Math.PI / 2],    // House 9
+      [36, 16, 5, Math.PI / 2],    [44, 16, 5, Math.PI / 2],    // House 11
+    ];
 
-      const placed = this._placeModel(fenceModel, x, 0, z, {
-        targetWidth: len,
-        collision: true,
-        destructible: true
-      });
+    for (const [x, z, len, rotY] of sideFences) {
+      this._placeFenceSegment(x, z, len, 'fence-1x3', rotY);
+    }
 
-      // Fallback to greybox
-      if (!placed) {
+    // Back fences (behind houses) for enclosed yards
+    const backFences = [
+      // North side (z = -21 ish, behind houses at z=-18)
+      [-40, -21, 8, 0],   // House 0
+      [-10, -21, 8, 0],   // House 2
+      [25, -21, 8, 0],    // House 4
+      // South side (z = 21, behind houses at z=18)
+      [-40, 21, 8, 0],    // House 6
+      [10, 21, 8, 0],     // House 9
+      [40, 21, 8, 0],     // House 11
+    ];
+
+    for (const [x, z, len, rotY] of backFences) {
+      this._placeFenceSegment(x, z, len, 'fence-1x4', rotY);
+    }
+  }
+
+  _placeFenceSegment(x, z, len, modelName, rotY) {
+    const placed = this._placeModel(modelName, x, 0, z, {
+      targetWidth: len,
+      rotationY: rotY,
+      collision: true,
+      destructible: true
+    });
+
+    if (!placed) {
+      // Greybox fallback
+      if (Math.abs(rotY - Math.PI / 2) < 0.1) {
+        // Vertical fence (along Z)
+        this._addBox(0.15, 1.0, len, 0xddddcc, x, 0, z, true, true);
+      } else {
+        // Horizontal fence (along X)
         this._addBox(len, 1.0, 0.15, 0xddddcc, x, 0, z, true, true);
-        for (let p = 0; p < len; p += 2) {
-          this._addBox(0.15, 1.2, 0.15, 0xaa9977, x - len / 2 + p, 0, z, false);
-        }
       }
     }
   }
@@ -313,10 +368,18 @@ export class SuburbanBlock {
   // ==================== TREES (GLB) ====================
   _buildTrees() {
     const treePositions = [
+      // Along sidewalks
       [-45, -10], [-32, -10], [-18, -10], [5, -10], [18, -10], [33, -10], [48, -10],
       [-45, 10], [-32, 10], [-18, 10], [5, 10], [18, 10], [33, 10], [48, 10],
-      [-42, -22], [-12, -22], [15, -24], [38, -22],
-      [-38, 22], [-8, 24], [22, 22], [44, 24],
+      // Behind houses (backyards) — north side
+      [-42, -22], [-38, -20], [-12, -22], [-8, -20],
+      [15, -24], [23, -21], [38, -22],
+      // Behind houses (backyards) — south side
+      [-38, 22], [-42, 20], [-8, 24], [-12, 21],
+      [12, 20], [22, 22], [38, 21], [44, 24],
+      // Garden trees inside fenced yards
+      [-40, -17], [-10, -17], [25, -17],  // north fenced yards
+      [-40, 17], [10, 17], [40, 17],      // south fenced yards
     ];
 
     for (let i = 0; i < treePositions.length; i++) {
