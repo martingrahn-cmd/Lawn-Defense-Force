@@ -22,12 +22,14 @@ export class Editor {
     this.selBox = null;
     this.activeName = null;
     this.ghost = null;
+    this.ghostRotY = 0;       // rotation for next placement
     this.tool = 'place';
     this.snap = true;
     this.snapSize = 1;
     this.imported = {};
     this._id = 0;
     this._running = true;
+    this._thumbnailCache = {};
 
     // Drag state
     this._mouseStart = { x: 0, y: 0 };
@@ -48,6 +50,7 @@ export class Editor {
     this._initControls();
     this._initLights();
     this._initGround();
+    this._initThumbnailRenderer();
     this._initUI();
     this._bindEvents();
     this._loop();
@@ -83,7 +86,6 @@ export class Editor {
     this.controls.maxPolarAngle = Math.PI / 2.1;
     this.controls.minDistance = 5;
     this.controls.maxDistance = 200;
-    // Left click = our tool, middle = orbit, right = pan
     this.controls.mouseButtons = {
       LEFT: null,
       MIDDLE: THREE.MOUSE.ROTATE,
@@ -120,7 +122,6 @@ export class Editor {
     grid.material.transparent = true;
     this.scene.add(grid);
 
-    // Axis markers
     const axX = new THREE.ArrowHelper(
       new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0.1, 0), 10, 0xff0000
     );
@@ -129,6 +130,63 @@ export class Editor {
     );
     this.scene.add(axX);
     this.scene.add(axZ);
+  }
+
+  /* ═══════════════ THUMBNAIL RENDERER ═══════════════ */
+
+  _initThumbnailRenderer() {
+    this._thumbRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    this._thumbRenderer.setSize(64, 64);
+    this._thumbRenderer.setClearColor(0x000000, 0);
+
+    this._thumbScene = new THREE.Scene();
+    this._thumbScene.add(new THREE.AmbientLight(0xffffff, 0.8));
+    const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+    dir.position.set(2, 3, 2);
+    this._thumbScene.add(dir);
+
+    this._thumbCamera = new THREE.PerspectiveCamera(35, 1, 0.01, 100);
+  }
+
+  _renderThumbnail(name) {
+    if (this._thumbnailCache[name]) return this._thumbnailCache[name];
+
+    const data = this._getModel(name);
+    if (!data) return null;
+
+    const model = data.scene;
+
+    // Compute bounds and center the model at origin
+    const box = new THREE.Box3().setFromObject(model);
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+
+    const maxDim = Math.max(size.x, size.y, size.z);
+    if (maxDim === 0) return null;
+
+    // Normalize to fit in ~2 unit cube
+    const s = 2 / maxDim;
+    model.scale.multiplyScalar(s);
+    model.position.set(-center.x * s, -center.y * s, -center.z * s);
+
+    // Remove previous model from thumb scene (keep lights at index 0,1)
+    while (this._thumbScene.children.length > 2) {
+      this._thumbScene.remove(this._thumbScene.children[2]);
+    }
+    this._thumbScene.add(model);
+
+    // Camera at isometric angle
+    this._thumbCamera.position.set(2.5, 2.0, 2.5);
+    this._thumbCamera.lookAt(0, 0.2, 0);
+
+    this._thumbRenderer.render(this._thumbScene, this._thumbCamera);
+    const url = this._thumbRenderer.domElement.toDataURL('image/png');
+
+    this._thumbScene.remove(model);
+    this._thumbnailCache[name] = url;
+    return url;
   }
 
   /* ═══════════════ MODEL HELPERS ═══════════════ */
@@ -174,7 +232,6 @@ export class Editor {
     const mx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     const my = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     this.ray.setFromCamera({ x: mx, y: my }, this.camera);
-    // Check placed objects, newest first (top of stack)
     for (let i = this.placed.length - 1; i >= 0; i--) {
       const obj = this.placed[i];
       if (this.ray.intersectObject(obj.mesh, true).length > 0) return obj;
@@ -208,6 +265,7 @@ export class Editor {
         <span class="ed-sep"></span>
         <button id="ed-snap" class="ed-btn active" title="Toggle grid snap (G)">Snap: ON</button>
         <span id="ed-coords" class="ed-coords">X: 0  Z: 0</span>
+        <span id="ed-rot-display" class="ed-coords"></span>
       </div>
       <div class="ed-tool-group">
         <button id="ed-save" class="ed-btn">Save</button>
@@ -221,7 +279,7 @@ export class Editor {
 
     bar.querySelector('#ed-tool-place').onclick = () => this._setTool('place');
     bar.querySelector('#ed-tool-select').onclick = () => this._setTool('select');
-    bar.querySelector('#ed-rotate').onclick = () => this._rotateSel();
+    bar.querySelector('#ed-rotate').onclick = () => this._rotateAction();
     bar.querySelector('#ed-delete').onclick = () => this._deleteSel();
     bar.querySelector('#ed-dup').onclick = () => this._duplicateSel();
     bar.querySelector('#ed-snap').onclick = () => this._toggleSnap();
@@ -288,7 +346,20 @@ export class Editor {
         const item = document.createElement('div');
         item.className = 'ed-asset-item';
         if (name === this.activeName) item.classList.add('active');
-        item.textContent = name;
+
+        // Thumbnail
+        const thumb = this._renderThumbnail(name);
+        if (thumb) {
+          const img = document.createElement('img');
+          img.className = 'ed-thumb';
+          img.src = thumb;
+          item.appendChild(img);
+        }
+
+        const label = document.createElement('span');
+        label.textContent = name;
+        item.appendChild(label);
+
         item.onclick = () => {
           this._selectAsset(name);
           panel.querySelectorAll('.ed-asset-item').forEach(el => el.classList.remove('active'));
@@ -341,6 +412,7 @@ export class Editor {
     document.getElementById('ed-tool-select').classList.toggle('active', tool === 'select');
     if (tool === 'select') this._clearGhost();
     else if (this.activeName) this._createGhost(this.activeName);
+    this._updateRotDisplay();
   }
 
   _toggleSnap() {
@@ -352,8 +424,19 @@ export class Editor {
 
   _selectAsset(name) {
     this.activeName = name;
+    this.ghostRotY = 0;
     this._setTool('place');
     this._createGhost(name);
+  }
+
+  _updateRotDisplay() {
+    const el = document.getElementById('ed-rot-display');
+    if (!el) return;
+    if (this.tool === 'place' && this.activeName) {
+      el.textContent = `Rot: ${Math.round(THREE.MathUtils.radToDeg(this.ghostRotY))}°`;
+    } else {
+      el.textContent = '';
+    }
   }
 
   /* ═══════════════ GHOST MESH ═══════════════ */
@@ -366,6 +449,7 @@ export class Editor {
     const mesh = data.scene;
     const scale = this._defaultScale(name, data);
     mesh.scale.setScalar(scale);
+    mesh.rotation.y = this.ghostRotY;
 
     mesh.traverse(child => {
       if (!child.isMesh) return;
@@ -400,6 +484,7 @@ export class Editor {
     const x = this._snapVal(pos.x);
     const z = this._snapVal(pos.z);
     const mesh = this.ghost.mesh;
+    mesh.rotation.y = this.ghostRotY;
     mesh.position.set(0, 0, 0);
     mesh.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(mesh);
@@ -486,12 +571,18 @@ export class Editor {
     if (this.selBox) this.selBox.setFromObject(o.mesh);
   }
 
-  _rotateSel() {
-    if (!this.selected) return;
-    this.selected.rotationY += Math.PI / 4;
-    this._repositionObject(this.selected);
-    if (this.selBox) this.selBox.setFromObject(this.selected.mesh);
-    this._updateProps();
+  /* Rotate: if selected object exists rotate it, otherwise rotate ghost */
+  _rotateAction() {
+    if (this.selected) {
+      this.selected.rotationY += Math.PI / 4;
+      this._repositionObject(this.selected);
+      if (this.selBox) this.selBox.setFromObject(this.selected.mesh);
+      this._updateProps();
+    } else if (this.tool === 'place' && this.ghost) {
+      this.ghostRotY += Math.PI / 4;
+      this.ghost.mesh.rotation.y = this.ghostRotY;
+      this._updateRotDisplay();
+    }
   }
 
   _deleteSel() {
@@ -595,7 +686,7 @@ export class Editor {
       if (pos && this.activeName) {
         const x = this._snapVal(pos.x);
         const z = this._snapVal(pos.z);
-        const obj = this._placeObject(this.activeName, x, z);
+        const obj = this._placeObject(this.activeName, x, z, this.ghostRotY);
         if (obj) this._select(obj);
       }
     }
@@ -609,13 +700,15 @@ export class Editor {
     switch (e.key) {
       case 'p': this._setTool('place'); break;
       case 'v': this._setTool('select'); break;
-      case 'r': this._rotateSel(); break;
+      case 'r': this._rotateAction(); break;
       case 'Delete': case 'Backspace': this._deleteSel(); break;
       case 'g': this._toggleSnap(); break;
       case 'Escape':
         this._deselect();
         this._clearGhost();
         this.activeName = null;
+        this.ghostRotY = 0;
+        this._updateRotDisplay();
         break;
       case 'd':
         if (e.ctrlKey || e.metaKey) { e.preventDefault(); this._duplicateSel(); }
@@ -768,6 +861,7 @@ export class Editor {
 
     this.controls.dispose();
     this.renderer.dispose();
+    this._thumbRenderer.dispose();
     this.container.removeChild(cvs);
     if (this.ui) this.ui.remove();
 

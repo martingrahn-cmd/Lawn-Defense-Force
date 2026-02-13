@@ -128,7 +128,7 @@
     .ed-coords { color: rgba(0,255,0,0.5); font-size: 11px; margin-left: 8px; }
 
     #ed-palette {
-      position: absolute; top: 40px; left: 0; bottom: 0; width: 200px;
+      position: absolute; top: 40px; left: 0; bottom: 0; width: 220px;
       background: rgba(0,0,0,0.85); border-right: 1px solid rgba(0,255,0,0.3);
       overflow-y: auto; overflow-x: hidden;
     }
@@ -145,12 +145,17 @@
     .ed-cat-header.collapsed::before { content: '+ '; }
     .ed-cat-header:not(.collapsed)::before { content: '- '; }
     .ed-asset-item {
-      padding: 4px 12px 4px 20px; font-size: 11px; color: #0c0;
+      padding: 4px 8px 4px 12px; font-size: 11px; color: #0c0;
       cursor: pointer; white-space: nowrap; overflow: hidden;
-      text-overflow: ellipsis;
+      text-overflow: ellipsis; display: flex; align-items: center; gap: 6px;
     }
     .ed-asset-item:hover { background: rgba(0,255,0,0.1); }
     .ed-asset-item.active { background: rgba(0,255,0,0.25); color: #fff; }
+    .ed-thumb {
+      width: 40px; height: 40px; flex-shrink: 0;
+      border: 1px solid rgba(0,255,0,0.2); border-radius: 2px;
+      background: rgba(0,0,0,0.3); image-rendering: auto;
+    }
 
     #ed-props {
       position: absolute; bottom: 0; right: 0; width: 260px;
