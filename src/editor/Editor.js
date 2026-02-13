@@ -771,6 +771,11 @@ export class Editor {
     this.container.removeChild(cvs);
     if (this.ui) this.ui.remove();
 
+    // Restore game canvas and HUD visibility
+    const gameCanvas = document.querySelector('#game-container > canvas');
+    if (gameCanvas) gameCanvas.style.display = '';
+    document.getElementById('hud').style.display = '';
+
     document.getElementById('loading-screen').style.display = 'flex';
     document.body.style.cursor = '';
   }

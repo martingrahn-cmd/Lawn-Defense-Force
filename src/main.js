@@ -51,7 +51,13 @@ function startGame(game) {
 
 function startEditor(assets) {
   document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('hud').style.display = 'none';
   document.body.style.cursor = '';
+
+  // Hide the game's canvas so the editor canvas is visible
+  const gameCanvas = document.querySelector('#game-container > canvas');
+  if (gameCanvas) gameCanvas.style.display = 'none';
+
   const container = document.getElementById('game-container');
   new Editor(container, assets);
 }
