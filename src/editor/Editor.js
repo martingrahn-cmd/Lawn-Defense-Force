@@ -11,6 +11,12 @@ const DEFAULT_SIZES = {
   path:     { dim: 'x', value: 2 },
   driveway: { dim: 'x', value: 3 },
   planter:  { dim: 'y', value: 0.8 },
+  road:     { dim: 'x', value: 4 },
+  sign:     { dim: 'y', value: 3 },
+  light:    { dim: 'y', value: 4 },
+  construction: { dim: 'y', value: 1.5 },
+  bridge:   { dim: 'x', value: 4 },
+  tile:     { dim: 'x', value: 4 },
 };
 
 export class Editor {
@@ -205,7 +211,23 @@ export class Editor {
   }
 
   _defaultScale(name, data) {
-    const prefix = name.split('-')[0];
+    // Handle road-* prefixed names (road-road-straight, road-light-curved, etc.)
+    let prefix;
+    if (name.startsWith('road-road-') || name.startsWith('road-road-')) {
+      prefix = 'road';
+    } else if (name.startsWith('road-light-')) {
+      prefix = 'light';
+    } else if (name.startsWith('road-sign-')) {
+      prefix = 'sign';
+    } else if (name.startsWith('road-construction-')) {
+      prefix = 'construction';
+    } else if (name.startsWith('road-bridge-')) {
+      prefix = 'bridge';
+    } else if (name.startsWith('road-tile-')) {
+      prefix = 'tile';
+    } else {
+      prefix = name.split('-')[0];
+    }
     const def = DEFAULT_SIZES[prefix];
     if (!def) return 1;
     const d = data.size[def.dim];
@@ -302,6 +324,16 @@ export class Editor {
     panel.innerHTML = '<div class="ed-palette-title">ASSETS</div>';
 
     const cats = {
+      'Roads - Straight': [],
+      'Roads - Curves': [],
+      'Roads - Intersections': [],
+      'Roads - Special': [],
+      'Roads - Ramps': [],
+      'Traffic Lights': [],
+      'Signs': [],
+      'Construction': [],
+      'Bridges': [],
+      'Tiles': [],
       'Buildings': [],
       'Cars': [],
       'Trees': [],
@@ -312,7 +344,36 @@ export class Editor {
 
     if (this.assets) {
       for (const name of Object.keys(this.assets.models)) {
-        if (name.startsWith('building-')) cats['Buildings'].push(name);
+        // Road categories
+        if (name.startsWith('road-road-straight') || name === 'road-road-side' || name === 'road-road-side-barrier' ||
+            name === 'road-road-end' || name === 'road-road-end-barrier' || name === 'road-road-end-round' ||
+            name === 'road-road-end-round-barrier' || name === 'road-road-square' || name === 'road-road-square-barrier' ||
+            name === 'road-road-crossing' || name === 'road-road-driveway-single' || name === 'road-road-driveway-single-barrier' ||
+            name === 'road-road-driveway-double' || name === 'road-road-driveway-double-barrier') {
+          cats['Roads - Straight'].push(name);
+        } else if (name.startsWith('road-road-bend') || name.startsWith('road-road-curve')) {
+          cats['Roads - Curves'].push(name);
+        } else if (name.startsWith('road-road-crossroad') || name.startsWith('road-road-intersection') ||
+                   name.startsWith('road-road-split') || name.startsWith('road-road-roundabout') ||
+                   name.startsWith('road-road-side-entry') || name.startsWith('road-road-side-exit')) {
+          cats['Roads - Intersections'].push(name);
+        } else if (name.startsWith('road-road-bridge')) {
+          cats['Roads - Special'].push(name);
+        } else if (name.startsWith('road-road-slant')) {
+          cats['Roads - Ramps'].push(name);
+        } else if (name.startsWith('road-light-')) {
+          cats['Traffic Lights'].push(name);
+        } else if (name.startsWith('road-sign-')) {
+          cats['Signs'].push(name);
+        } else if (name.startsWith('road-construction-')) {
+          cats['Construction'].push(name);
+        } else if (name.startsWith('road-bridge-')) {
+          cats['Bridges'].push(name);
+        } else if (name.startsWith('road-tile-')) {
+          cats['Tiles'].push(name);
+        }
+        // Original categories
+        else if (name.startsWith('building-')) cats['Buildings'].push(name);
         else if (name.startsWith('car-')) cats['Cars'].push(name);
         else if (name.startsWith('tree-')) cats['Trees'].push(name);
         else if (name.startsWith('fence')) cats['Fences'].push(name);

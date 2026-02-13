@@ -1,9 +1,13 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
 
 export class AssetLoader {
   constructor() {
     this.loader = new GLTFLoader();
+    this.objLoader = new OBJLoader();
+    this.mtlLoader = new MTLLoader();
     this.textureLoader = new THREE.TextureLoader();
     this.models = {};
     this.colormaps = [];  // loaded colormap variations
@@ -94,7 +98,39 @@ export class AssetLoader {
       'car-police': 'cars/police.glb',
     };
 
-    const total = Object.keys(modelList).length;
+    // Road models (OBJ+MTL from Kenney road kit)
+    const roadModels = [
+      'bridge-pillar', 'bridge-pillar-wide',
+      'construction-barrier', 'construction-cone', 'construction-light',
+      'light-curved', 'light-curved-cross', 'light-curved-double',
+      'light-square', 'light-square-cross', 'light-square-double',
+      'road-bend', 'road-bend-barrier', 'road-bend-sidewalk',
+      'road-bend-square', 'road-bend-square-barrier',
+      'road-bridge', 'road-crossing',
+      'road-crossroad', 'road-crossroad-barrier', 'road-crossroad-line', 'road-crossroad-path',
+      'road-curve', 'road-curve-barrier', 'road-curve-intersection',
+      'road-curve-intersection-barrier', 'road-curve-pavement',
+      'road-driveway-double', 'road-driveway-double-barrier',
+      'road-driveway-single', 'road-driveway-single-barrier',
+      'road-end', 'road-end-barrier', 'road-end-round', 'road-end-round-barrier',
+      'road-intersection', 'road-intersection-barrier',
+      'road-intersection-line', 'road-intersection-path',
+      'road-roundabout', 'road-roundabout-barrier',
+      'road-side', 'road-side-barrier',
+      'road-side-entry', 'road-side-entry-barrier',
+      'road-side-exit', 'road-side-exit-barrier',
+      'road-slant', 'road-slant-barrier', 'road-slant-curve', 'road-slant-curve-barrier',
+      'road-slant-flat', 'road-slant-flat-curve', 'road-slant-flat-high',
+      'road-slant-high', 'road-slant-high-barrier',
+      'road-split', 'road-split-barrier',
+      'road-square', 'road-square-barrier',
+      'road-straight', 'road-straight-barrier', 'road-straight-barrier-end',
+      'road-straight-barrier-half', 'road-straight-half',
+      'sign-highway', 'sign-highway-detailed', 'sign-highway-wide',
+      'tile-high', 'tile-low', 'tile-slant', 'tile-slantHigh',
+    ];
+
+    const total = Object.keys(modelList).length + roadModels.length;
     let loaded = 0;
 
     const promises = Object.entries(modelList).map(([name, file]) => {
@@ -136,7 +172,63 @@ export class AssetLoader {
       });
     });
 
-    await Promise.all(promises);
+    // Load road OBJ+MTL models
+    const roadPath = basePath + 'roads/';
+    const roadPromises = roadModels.map((name) => {
+      return new Promise((resolve) => {
+        this.mtlLoader.setPath(roadPath);
+        this.mtlLoader.load(
+          name + '.mtl',
+          (materials) => {
+            materials.preload();
+            const objLoader = new OBJLoader();
+            objLoader.setMaterials(materials);
+            objLoader.setPath(roadPath);
+            objLoader.load(
+              name + '.obj',
+              (obj) => {
+                obj.traverse((child) => {
+                  if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                  }
+                });
+
+                const box = new THREE.Box3().setFromObject(obj);
+                const size = new THREE.Vector3();
+                box.getSize(size);
+
+                this.models['road-' + name] = {
+                  scene: obj,
+                  size,
+                  box
+                };
+
+                loaded++;
+                if (onProgress) onProgress(loaded, total);
+                resolve();
+              },
+              undefined,
+              (error) => {
+                console.warn(`Failed to load road OBJ ${name}:`, error);
+                loaded++;
+                if (onProgress) onProgress(loaded, total);
+                resolve();
+              }
+            );
+          },
+          undefined,
+          (error) => {
+            console.warn(`Failed to load road MTL ${name}:`, error);
+            loaded++;
+            if (onProgress) onProgress(loaded, total);
+            resolve();
+          }
+        );
+      });
+    });
+
+    await Promise.all([...promises, ...roadPromises]);
   }
 
   getModel(name) {
