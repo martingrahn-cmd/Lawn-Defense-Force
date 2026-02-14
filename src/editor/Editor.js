@@ -1007,14 +1007,14 @@ export class Editor {
     for (const z of roadLines) {
       for (let x = -52; x <= 52; x += T) {
         if (isects.has(`${x},${z}`)) continue;
-        this._placeObject('road-road-straight', x, z, H);
+        this._placeObject('road-road-straight', x, z, 0);
       }
     }
     // N-S roads
     for (const x of roadLines) {
       for (let z = -52; z <= 52; z += T) {
         if (isects.has(`${x},${z}`)) continue;
-        this._placeObject('road-road-straight', x, z, 0);
+        this._placeObject('road-road-straight', x, z, H);
       }
     }
     // 9 crossroad intersections
@@ -1025,12 +1025,12 @@ export class Editor {
     }
     // End caps on all 12 road ends
     for (const z of roadLines) {
-      this._placeObject('road-road-end-round', -56, z, H);
-      this._placeObject('road-road-end-round', 56, z, -H);
+      this._placeObject('road-road-end-round', -56, z, 0);
+      this._placeObject('road-road-end-round', 56, z, PI);
     }
     for (const x of roadLines) {
-      this._placeObject('road-road-end-round', x, -56, PI);
-      this._placeObject('road-road-end-round', x, 56, 0);
+      this._placeObject('road-road-end-round', x, -56, H);
+      this._placeObject('road-road-end-round', x, 56, -H);
     }
 
     // ═══════════ 4 SUBURBAN BLOCKS ═══════════

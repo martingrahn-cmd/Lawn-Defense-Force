@@ -1,0 +1,408 @@
+================================================================================
+  LAWN DEFENSE FORCE - LEVEL EDITOR GUIDE
+  Building a Living Suburban World
+================================================================================
+
+TABLE OF CONTENTS
+  1. Editor Controls
+  2. Getting Started
+  3. Building a World Step-by-Step
+  4. Road System (Kenney Road Kit)
+  5. Buildings & Color Variation
+  6. Making It Feel "Alive" - Detail Checklist
+  7. Scale Reference & Imported Assets
+  8. Save/Load Workflow
+  9. Free Asset Pack Recommendations
+  10. Tips & Tricks
+
+================================================================================
+1. EDITOR CONTROLS
+================================================================================
+
+  KEYBOARD:
+    P ............. Place tool (select asset from palette, click to place)
+    V ............. Select tool (click to select, drag to move)
+    R ............. Rotate 45 degrees
+    T ............. Toggle player scale reference figure
+    G ............. Toggle grid snap (on/off)
+    Del/Backspace . Delete selected object
+    Ctrl+D ........ Duplicate selected object
+    Ctrl+S ........ Save level to JSON file
+    Esc ........... Deselect / cancel placement
+
+  MOUSE:
+    Left click .... Place object (Place mode) or Select object (Select mode)
+    Left drag ..... Move selected object (Select mode)
+    Middle drag ... Orbit camera (rotate view)
+    Right drag .... Pan camera (move view)
+    Scroll wheel .. Zoom in/out
+
+  TOOLBAR BUTTONS:
+    Place ......... Switch to placement mode
+    Select ........ Switch to selection mode
+    Rot ........... Rotate selected/ghost 45 degrees
+    Del ........... Delete selected object
+    Dup ........... Duplicate selected object
+    Snap .......... Toggle grid snapping
+    Player ........ Toggle player reference figure (scale helper)
+    Generate ...... Auto-generate a full suburban neighborhood
+    Clear ......... Remove all placed objects
+    Save .......... Export level as .json file
+    Load .......... Import a saved .json level
+    Import GLB .... Import custom .glb/.gltf models
+    Back .......... Return to main menu
+
+================================================================================
+2. GETTING STARTED
+================================================================================
+
+  Quick start:
+    1. Click "LEVEL EDITOR" on the start screen
+    2. Click "Generate" to create a starter neighborhood
+    3. Use Select (V) to move/adjust objects
+    4. Use Place (P) to add new objects from the palette
+    5. Save your work with Ctrl+S
+
+  The green ground plane is 200x200 units. You can build anywhere on it.
+  The generated world uses about 120x120 units in the center, leaving
+  plenty of room to expand.
+
+================================================================================
+3. BUILDING A WORLD STEP-BY-STEP
+================================================================================
+
+  PHASE 1: ROADS (the skeleton)
+  ─────────────────────────────
+  Roads define the structure of your neighborhood. Lay them first.
+
+    a) Start with main roads. Place "road-road-straight" tiles in a line.
+       - Each tile is 4x4 units, they snap together on the grid
+       - Rotation 0 = road runs East-West (along X axis)
+       - Rotation 90 = road runs North-South (along Z axis)
+
+    b) Place intersections where roads meet:
+       - "road-road-crossroad" for 4-way intersections
+       - "road-road-intersection" for T-junctions
+       - "road-road-curve" for 90-degree corners
+
+    c) Add end pieces at dead ends:
+       - "road-road-end-round" or "road-road-end"
+
+    d) Optional: Add sidewalk variants (road-road-side, road-road-bend-sidewalk)
+
+  PHASE 2: BUILDINGS (the bones)
+  ──────────────────────────────
+  Place houses facing the road, typically 14-16 units from road center.
+
+    a) Choose house types from the "Buildings" category (21 types: a through u)
+    b) Space houses ~8 units apart (building width)
+    c) Rotate houses to face their nearest road:
+       - Face +Z (south): rotation 0
+       - Face -Z (north): rotation 180 (PI)
+       - Face +X (east):  rotation -90
+       - Face -X (west):  rotation 90
+    d) Each house gets a unique colormap texture automatically in Generate.
+       You can also manually cycle colors by re-placing a house.
+
+  PHASE 3: INFRASTRUCTURE (connecting it)
+  ────────────────────────────────────────
+    a) Driveways: Place between road and house (~9 units from road center)
+       - Use "driveway-long" or "driveway-short"
+       - Rotate to point from road toward house
+
+    b) Walkway paths: Place alongside driveways (~10-11 units from road center)
+       - "path-short", "path-stones-short", "path-stones-messy" etc.
+
+    c) Fences: Place in front of houses (~10 units from road center)
+       - Mix "fence-1x4", "fence-1x3", "fence-2x3" for variety
+
+  PHASE 4: VEHICLES (life on the road)
+  ─────────────────────────────────────
+    a) Park cars in driveways (same z-position as driveway, they sit on top)
+    b) Park some cars along the road edge (~3 units from road center)
+    c) Mix car types: sedan, suv, van, truck, taxi, police, hatchback
+    d) Not every driveway needs a car! 60-70% feels natural.
+
+  PHASE 5: NATURE (softening the geometry)
+  ────────────────────────────────────────
+    a) Sidewalk trees: Regular spacing (~6-8 units apart) along road edges
+       - Alternate "tree-large" and "tree-small"
+       - Jitter positions slightly (0.5-1 unit) for organic feel
+       - Place ~6-7 units from road center
+
+    b) Backyard trees: Random scatter behind houses (~18-24 units from road)
+       - Less regular spacing, more organic clumps
+       - Mix large and small trees
+
+    c) Planters: Near house entrances for garden feel
+
+  PHASE 6: DETAILS (what makes it "alive")
+  ─────────────────────────────────────────
+    a) Traffic lights at intersections (diagonally placed, ~5 units from center)
+    b) Road signs at neighborhood entries
+    c) Construction zone: a few cones + barrier = instant story-telling
+    d) Vary everything! No two houses should be identical.
+
+================================================================================
+4. ROAD SYSTEM (Kenney Road Kit)
+================================================================================
+
+  All road tiles are 4x4 units (scaled from Kenney's modular road kit).
+  They snap together when grid snap is ON (default).
+
+  CATEGORIES:
+    Roads - Straight:
+      road-road-straight .......... Basic straight road
+      road-road-straight-barrier .. With guardrail
+      road-road-side .............. Road with sidewalk on one side
+      road-road-crossing .......... Pedestrian crossing
+      road-road-end ............... Dead end (flat)
+      road-road-end-round ......... Dead end (rounded)
+      road-road-square ............ Road surface tile
+      road-road-driveway-single ... Road with one driveway cutout
+      road-road-driveway-double ... Road with two driveway cutouts
+
+    Roads - Curves:
+      road-road-bend .............. 90-degree turn
+      road-road-bend-sidewalk ..... 90-degree turn with sidewalk
+      road-road-curve ............. Curved turn
+      road-road-curve-pavement .... Curved with pavement
+
+    Roads - Intersections:
+      road-road-crossroad ......... 4-way intersection
+      road-road-intersection ...... T-junction
+      road-road-split ............. Y-split
+      road-road-roundabout ........ Roundabout
+      road-road-side-entry ........ Side road entry
+      road-road-side-exit ......... Side road exit
+
+    Roads - Ramps:
+      road-road-slant ............. Ramp up
+      road-road-slant-flat ........ Ramp leveling off
+      road-road-bridge ............ Bridge section
+
+  ROTATION GUIDE:
+    Use R to rotate 45 degrees. Road pieces typically need 0 or 90 degrees:
+      0 degrees ... Road runs East-West (stripes along X axis)
+      90 degrees .. Road runs North-South (stripes along Z axis)
+      180 degrees . Flipped direction (for end pieces, entries)
+
+================================================================================
+5. BUILDINGS & COLOR VARIATION
+================================================================================
+
+  21 building types (building-a through building-u) using Kenney's
+  Suburban Buildings kit. All share a colormap texture system.
+
+  COLORMAPS:
+    The game loads 4 colormap textures:
+      - colormap.png (default)
+      - variation-a.png
+      - variation-b.png
+      - variation-c.png
+
+    When using "Generate", each house automatically gets a different
+    colormap, cycling through all 4 variations. This gives houses
+    different wall colors, roof colors, and trim colors.
+
+  MANUAL COLOR CONTROL:
+    Currently, colormap assignment happens during generation.
+    To get different colors manually:
+      1. Delete and re-place the house (it picks a new random type)
+      2. Or: Use Generate as a starting point and rearrange
+
+  DEFAULT BUILDING SCALE:
+    Buildings are scaled so their X-dimension = 8 game units.
+    Actual dimensions vary by type (some wider, some taller).
+
+================================================================================
+6. MAKING IT FEEL "ALIVE" - DETAIL CHECKLIST
+================================================================================
+
+  Use this checklist when building or reviewing a neighborhood block:
+
+  [ ] Roads connect logically (no floating tiles, proper intersections)
+  [ ] Every intersection has traffic lights (diagonally placed)
+  [ ] Houses face the nearest road
+  [ ] Mix of house types (don't repeat the same type in a row)
+  [ ] Houses have varied colors (different colormap textures)
+  [ ] Most houses have a driveway
+  [ ] About 60% of driveways have a parked car
+  [ ] A few cars parked on the street (not too many, not too few)
+  [ ] Mix of car types (sedan, SUV, van, truck, taxi, etc.)
+  [ ] Front fences between road and houses
+  [ ] Sidewalk trees at regular intervals along every road
+  [ ] Backyard trees scattered randomly behind houses
+  [ ] Walkway paths from road to house entrance
+  [ ] A few planters near house entrances
+  [ ] At least one "story" element:
+      - Construction zone (cones + barrier)
+      - Police car parked at a house
+      - A cluster of trees suggesting a small park
+  [ ] Road signs at neighborhood entries
+  [ ] No large empty areas without any objects
+  [ ] Objects don't overlap badly (slight overlap is OK for fences/paths)
+
+  DENSITY GUIDE (objects per suburban block of ~36x36 units):
+    Houses ......... 6-8
+    Cars ........... 4-6 (driveways) + 2-3 (street)
+    Trees .......... 12-16 (sidewalk) + 6-8 (backyard)
+    Fences ......... 6-8 segments
+    Driveways ...... 6-8
+    Paths .......... 6-8
+    Planters ....... 2-4
+    Traffic lights . 2 per intersection (diagonal corners)
+
+================================================================================
+7. SCALE REFERENCE & IMPORTED ASSETS
+================================================================================
+
+  PLAYER SIZE:
+    The player character is approximately:
+      Width:  0.6 units (body)
+      Height: 1.65 units (feet to top of head)
+      Radius: 0.4 units (collision)
+
+    Toggle the player reference figure with T to see this in the editor.
+    The red pole next to the player shows exactly 1 unit height.
+
+  DEFAULT SCALES (auto-applied to known asset categories):
+    Asset Type      Scaled To       Dimension
+    ─────────────   ──────────────  ──────────
+    Buildings       8 units wide    X
+    Cars            2 units wide    X
+    Trees           4 units tall    Y
+    Fences          4 units wide    X
+    Paths           2 units wide    X
+    Driveways       3 units wide    X
+    Planters        0.8 units tall  Y
+    Road tiles      4 units wide    X
+    Signs           3 units tall    Y
+    Traffic lights  4 units tall    Y
+    Construction    1.5 units tall  Y
+
+  IMPORTING CUSTOM ASSETS:
+    1. Drag-and-drop a .glb or .gltf file onto the editor canvas
+       OR click "Import GLB" in the toolbar
+    2. The model appears in the "Imported" category in the palette
+    3. Imported models get scale = 1 (original size)
+
+    SCALING IMPORTED ASSETS:
+      a) Place the object
+      b) Switch to Select (V) and click it
+      c) Adjust Scale in the Properties panel (bottom right)
+      d) Use the player reference (T) to judge correct size
+
+    COMMON SCALE ISSUES:
+      - Kenney assets: 1 unit ≈ 1 meter → usually correct at default scale
+      - Sketchfab models: Often very large → try scale 0.01 to 0.1
+      - Quaternius: Usually 1 unit ≈ 1 meter → correct at default
+      - Blender default: 1 unit = 1 meter → usually correct
+
+    TIPS:
+      - A car should be about 2 units wide (same as player height)
+      - A house should be about 4-8 units wide
+      - A tree should be about 3-5 units tall
+      - Road tiles should be 4 units to match the existing grid
+
+================================================================================
+8. SAVE/LOAD WORKFLOW
+================================================================================
+
+  SAVING:
+    - Press Ctrl+S or click "Save"
+    - Downloads a "level.json" file
+    - Contains all placed objects with position, rotation, scale, and model name
+
+  LOADING:
+    - Click "Load" and select a .json file
+    - Replaces all current objects with the loaded level
+    - Only works with models that are currently loaded (built-in + imported)
+
+  NOTE: Imported .glb models are NOT saved in the level file. If you
+  load a level that uses imported models, you need to re-import those
+  models first.
+
+  RECOMMENDED WORKFLOW:
+    1. Generate a base world
+    2. Customize and add details
+    3. Save frequently (Ctrl+S)
+    4. Keep backups with descriptive names (level-v1.json, level-v2.json)
+
+================================================================================
+9. FREE ASSET PACK RECOMMENDATIONS
+================================================================================
+
+  BEST MATCH (same Kenney low-poly style):
+
+    Kenney (kenney.nl) - FREE, CC0 license
+      - Suburban Buildings (already included)
+      - Road Kit (already included)
+      - Cars Kit (already included)
+      - Nature Kit ........... More trees, rocks, flowers, bushes
+      - Furniture Kit ........ Indoor/outdoor furniture, great for yard props
+      - Graveyard Kit ........ Spooky decorations, perfect for Halloween waves
+      - Holiday Kit .......... Seasonal decorations
+      - Food Kit ............. BBQ props, picnic items
+      - City Builder Kit ..... Commercial buildings, shops, signs
+
+    Quaternius (quaternius.com) - FREE
+      - Ultimate Animated Characters .. Low-poly people, enemies, NPCs
+      - Nature Pack ................... Trees, rocks, terrain
+      - Furniture Pack ................ Home furniture and props
+      - Modular Streets ............... Additional road pieces
+
+    Kay Lousberg (kaylousberg.com) - FREE
+      - Prototype Series .............. Various themed props
+      - Mini props packs .............. Small detail objects
+
+    Poly Pizza (poly.pizza) - FREE, community uploads
+      - Searchable library of free low-poly models
+      - Mixed quality, but great for finding specific props
+
+  FORMAT COMPATIBILITY:
+    .glb / .gltf ... Drag-and-drop directly into editor (BEST)
+    .obj + .mtl .... Needs to be added to AssetLoader code
+    .fbx ........... Convert to .glb first using Blender
+    .blend ......... Export as .glb from Blender
+
+  BLENDER CONVERSION (for non-GLB formats):
+    1. Open model in Blender
+    2. File > Export > glTF 2.0 (.glb/.gltf)
+    3. Settings: Format = GLB, include textures
+    4. Drag the .glb file into the editor
+
+================================================================================
+10. TIPS & TRICKS
+================================================================================
+
+  LAYOUT TIPS:
+    - Real suburbs have houses on both sides of a road, facing the road
+    - Stagger houses slightly (not perfectly aligned) for realism
+    - Dead-end streets (cul-de-sacs) create natural gameplay arenas
+    - Open areas (parks, parking lots) are good for combat encounters
+
+  PERFORMANCE:
+    - The editor can handle 500+ objects comfortably
+    - Very large worlds (1000+ objects) may slow down
+    - Road tiles are simple geometry, so they're cheap
+
+  GAMEPLAY CONSIDERATIONS:
+    - The player needs open space to move and shoot (min ~3 unit gaps)
+    - Enemies spawn at the map edges
+    - Fences are destructible in-game (HP: 30)
+    - Cars are destructible in-game
+    - Houses are solid collision (not destructible)
+    - Trees have no collision in-game
+
+  AESTHETIC TIPS:
+    - Variety is king: mix house types, car types, tree sizes
+    - Break symmetry: don't mirror left and right sides exactly
+    - Add "stories": a taxi parked at a house, cones near a pothole, etc.
+    - Edge treatment: don't let roads/houses end abruptly at the map edge
+    - Use the camera orbit (middle mouse) to check your world from game angle
+
+================================================================================
+  Happy building!
+  - Lawn Defense Force Team
+================================================================================
