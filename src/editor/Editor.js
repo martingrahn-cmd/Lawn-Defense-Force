@@ -290,6 +290,9 @@ export class Editor {
         <span id="ed-rot-display" class="ed-coords"></span>
       </div>
       <div class="ed-tool-group">
+        <button id="ed-generate" class="ed-btn" style="color:#fa0;border-color:rgba(255,170,0,0.4);background:rgba(255,170,0,0.1)" title="Generate a suburban neighborhood">Generate</button>
+        <button id="ed-clear" class="ed-btn ed-btn-red" title="Clear all objects">Clear</button>
+        <span class="ed-sep"></span>
         <button id="ed-save" class="ed-btn">Save</button>
         <button id="ed-load" class="ed-btn">Load</button>
         <button id="ed-import" class="ed-btn">Import GLB</button>
@@ -305,6 +308,15 @@ export class Editor {
     bar.querySelector('#ed-delete').onclick = () => this._deleteSel();
     bar.querySelector('#ed-dup').onclick = () => this._duplicateSel();
     bar.querySelector('#ed-snap').onclick = () => this._toggleSnap();
+    bar.querySelector('#ed-generate').onclick = () => {
+      if (this.placed.length > 0 && !confirm('This will replace all objects. Continue?')) return;
+      this._generateWorld();
+    };
+    bar.querySelector('#ed-clear').onclick = () => {
+      if (this.placed.length === 0) return;
+      if (!confirm('Clear all placed objects?')) return;
+      this._clearAll();
+    };
     bar.querySelector('#ed-save').onclick = () => this._saveLevel();
     bar.querySelector('#ed-load').onclick = () => this._loadLevel();
     bar.querySelector('#ed-import').onclick = () => this._openImport();
@@ -849,6 +861,152 @@ export class Editor {
       }
     };
     input.click();
+  }
+
+  /* ═══════════════ GENERATE WORLD ═══════════════ */
+
+  _clearAll() {
+    for (const obj of this.placed) this.scene.remove(obj.mesh);
+    this.placed = [];
+    this._deselect();
+  }
+
+  _generateWorld() {
+    this._clearAll();
+
+    const T = 4;         // road tile spacing (matches DEFAULT_SIZES.road.value)
+    const PI = Math.PI;
+    const H = PI / 2;
+
+    // Seeded PRNG for reproducible variety
+    let seed = 42;
+    const rng = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+    const pick = (arr) => arr[Math.floor(rng() * arr.length)];
+    const jit = (v, a = 1) => v + (rng() - 0.5) * a;
+
+    // ── ROAD GRID ──
+    // East-West main road at z = 0
+    for (let x = -32; x <= 32; x += T) {
+      if (x === 0) continue;
+      this._placeObject('road-road-straight', x, 0, H);
+    }
+    // North-South cross road at x = 0
+    for (let z = -32; z <= 32; z += T) {
+      if (z === 0) continue;
+      this._placeObject('road-road-straight', 0, z, 0);
+    }
+    // Center crossroad
+    this._placeObject('road-road-crossroad', 0, 0, 0);
+
+    // Road end caps
+    this._placeObject('road-road-end-round', -36, 0, H);
+    this._placeObject('road-road-end-round', 36, 0, -H);
+    this._placeObject('road-road-end-round', 0, -36, PI);
+    this._placeObject('road-road-end-round', 0, 36, 0);
+
+    // ── HOUSES ──
+    const bldgs = [
+      'building-a','building-b','building-c','building-d','building-e','building-f',
+      'building-g','building-h','building-i','building-j','building-k','building-l',
+      'building-m','building-n','building-o','building-p',
+    ];
+
+    // North row: face south toward road
+    for (const x of [-24, -16, -8, 8, 16, 24]) {
+      this._placeObject(pick(bldgs), x, -16, 0);
+    }
+    // South row: face north toward road
+    for (const x of [-24, -16, -8, 8, 16, 24]) {
+      this._placeObject(pick(bldgs), x, 16, PI);
+    }
+    // West row: face east toward cross road
+    for (const z of [-24, -16, 16, 24]) {
+      this._placeObject(pick(bldgs), -14, z, H);
+    }
+    // East row: face west toward cross road
+    for (const z of [-24, -16, 16, 24]) {
+      this._placeObject(pick(bldgs), 14, z, -H);
+    }
+
+    // ── CARS ──
+    const cars = [
+      'car-sedan','car-suv','car-van','car-truck',
+      'car-hatchback','car-sedan-sports','car-taxi','car-suv-luxury','car-police',
+    ];
+
+    // Parked along main road
+    const roadCars = [
+      [-22, -3, H], [-14, 3, -H], [10, -3, H], [22, 3, -H],
+      [-28, -3, H], [28, 3, -H],
+    ];
+    for (const [x, z, r] of roadCars) this._placeObject(pick(cars), x, z, r);
+
+    // In north driveways
+    for (const x of [-24, -8, 16]) {
+      this._placeObject(pick(cars), x + 2, -10, 0);
+    }
+    // In south driveways
+    for (const x of [-16, 8, 24]) {
+      this._placeObject(pick(cars), x + 2, 10, PI);
+    }
+
+    // ── TREES ──
+    // Sidewalk trees along main road
+    for (const x of [-28, -24, -20, -16, -12, 12, 16, 20, 24, 28]) {
+      this._placeObject(pick(['tree-large', 'tree-small']), jit(x, 0.5), -7);
+      this._placeObject(pick(['tree-large', 'tree-small']), jit(x, 0.5), 7);
+    }
+    // Trees along cross road
+    for (const z of [-28, -24, -20, 20, 24, 28]) {
+      this._placeObject(pick(['tree-large', 'tree-small']), -7, jit(z, 0.5));
+      this._placeObject(pick(['tree-large', 'tree-small']), 7, jit(z, 0.5));
+    }
+    // Backyard trees (random scatter)
+    for (let i = 0; i < 20; i++) {
+      const x = jit(pick([-24, -16, -8, 8, 16, 24]), 3);
+      const z = rng() > 0.5 ? jit(-24, 4) : jit(24, 4);
+      this._placeObject(pick(['tree-large', 'tree-small']), x, z);
+    }
+
+    // ── FENCES ──
+    // Front fences along north and south house rows
+    for (const x of [-24, -16, -8, 8, 16, 24]) {
+      this._placeObject(pick(['fence-1x4', 'fence-1x3']), x, -11);
+      this._placeObject(pick(['fence-1x4', 'fence-1x3']), x, 11);
+    }
+
+    // ── DRIVEWAYS ──
+    for (const x of [-24, -16, -8, 8, 16, 24]) {
+      this._placeObject(pick(['driveway-long', 'driveway-short']), x + 2, -10, 0);
+      this._placeObject(pick(['driveway-long', 'driveway-short']), x + 2, 10, PI);
+    }
+
+    // ── WALKWAY PATHS ──
+    const paths = ['path-short', 'path-stones-short', 'path-stones-messy'];
+    for (const x of [-24, -16, -8, 8, 16, 24]) {
+      this._placeObject(pick(paths), x, -11);
+      this._placeObject(pick(paths), x, 11);
+    }
+
+    // ── PLANTERS ──
+    for (const x of [-20, -12, 12, 20]) {
+      this._placeObject('planter', x, -13);
+      this._placeObject('planter', x, 13);
+    }
+
+    // ── TRAFFIC LIGHTS at intersection ──
+    this._placeObject('road-light-square', 6, -6, 0);
+    this._placeObject('road-light-square', -6, 6, PI);
+
+    // ── ROAD SIGNS ──
+    this._placeObject('road-sign-highway', -34, 2, H);
+    this._placeObject('road-sign-highway', 34, -2, -H);
+
+    // ── CONSTRUCTION ZONE (flavor) ──
+    this._placeObject('road-construction-cone', -30, 2);
+    this._placeObject('road-construction-cone', -30, -2);
+    this._placeObject('road-construction-barrier', -32, 0, H);
+    this._placeObject('road-construction-light', -32, 2);
   }
 
   /* ═══════════════ SAVE / LOAD ═══════════════ */
