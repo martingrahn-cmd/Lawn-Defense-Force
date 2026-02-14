@@ -56,6 +56,7 @@ export class Editor {
     this._initControls();
     this._initLights();
     this._initGround();
+    this._initPlayerRef();
     this._initThumbnailRenderer();
     this._initUI();
     this._bindEvents();
@@ -136,6 +137,76 @@ export class Editor {
     );
     this.scene.add(axX);
     this.scene.add(axZ);
+  }
+
+  /* ═══════════════ PLAYER REFERENCE ═══════════════ */
+
+  _initPlayerRef() {
+    const group = new THREE.Group();
+    group.name = '__playerRef';
+
+    // Body (matches Player.js)
+    const bodyGeo = new THREE.BoxGeometry(0.6, 0.9, 0.4);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x336699 });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.position.y = 0.75;
+    body.castShadow = true;
+    group.add(body);
+
+    // Head
+    const headGeo = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+    const headMat = new THREE.MeshStandardMaterial({ color: 0xffcc88 });
+    const head = new THREE.Mesh(headGeo, headMat);
+    head.position.y = 1.45;
+    head.castShadow = true;
+    group.add(head);
+
+    // Gun arm
+    const gunGeo = new THREE.BoxGeometry(0.15, 0.15, 0.7);
+    const gunMat = new THREE.MeshStandardMaterial({ color: 0x444444 });
+    const gun = new THREE.Mesh(gunGeo, gunMat);
+    gun.position.set(0.4, 0.8, 0.2);
+    group.add(gun);
+
+    // 1-unit scale pole (red)
+    const poleMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const poleGeo = new THREE.CylinderGeometry(0.02, 0.02, 1, 8);
+    const pole = new THREE.Mesh(poleGeo, poleMat);
+    pole.position.set(1.2, 0.5, 0);
+    group.add(pole);
+    // Tick marks at 0 and 1 unit
+    const tickGeo = new THREE.BoxGeometry(0.3, 0.02, 0.02);
+    const tick0 = new THREE.Mesh(tickGeo, poleMat);
+    tick0.position.set(1.2, 0, 0);
+    group.add(tick0);
+    const tick1 = new THREE.Mesh(tickGeo.clone(), poleMat);
+    tick1.position.set(1.2, 1, 0);
+    group.add(tick1);
+
+    // "1m" label (sprite)
+    const canvas = document.createElement('canvas');
+    canvas.width = 64; canvas.height = 32;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ff0000';
+    ctx.font = 'bold 20px monospace';
+    ctx.fillText('1 unit', 4, 22);
+    const tex = new THREE.CanvasTexture(canvas);
+    const spriteMat = new THREE.SpriteMaterial({ map: tex });
+    const sprite = new THREE.Sprite(spriteMat);
+    sprite.scale.set(1.2, 0.6, 1);
+    sprite.position.set(1.2, 1.3, 0);
+    group.add(sprite);
+
+    this._playerRefMesh = group;
+    this._playerRefVisible = true;
+    this.scene.add(group);
+  }
+
+  _togglePlayerRef() {
+    this._playerRefVisible = !this._playerRefVisible;
+    this._playerRefMesh.visible = this._playerRefVisible;
+    const btn = document.getElementById('ed-player-ref');
+    if (btn) btn.classList.toggle('active', this._playerRefVisible);
   }
 
   /* ═══════════════ THUMBNAIL RENDERER ═══════════════ */
@@ -286,6 +357,7 @@ export class Editor {
         <button id="ed-dup" class="ed-btn" title="Duplicate (Ctrl+D)">Dup</button>
         <span class="ed-sep"></span>
         <button id="ed-snap" class="ed-btn active" title="Toggle grid snap (G)">Snap: ON</button>
+        <button id="ed-player-ref" class="ed-btn active" title="Toggle player scale reference (T)">Player</button>
         <span id="ed-coords" class="ed-coords">X: 0  Z: 0</span>
         <span id="ed-rot-display" class="ed-coords"></span>
       </div>
@@ -308,6 +380,7 @@ export class Editor {
     bar.querySelector('#ed-delete').onclick = () => this._deleteSel();
     bar.querySelector('#ed-dup').onclick = () => this._duplicateSel();
     bar.querySelector('#ed-snap').onclick = () => this._toggleSnap();
+    bar.querySelector('#ed-player-ref').onclick = () => this._togglePlayerRef();
     bar.querySelector('#ed-generate').onclick = () => {
       if (this.placed.length > 0 && !confirm('This will replace all objects. Continue?')) return;
       this._generateWorld();
@@ -776,6 +849,7 @@ export class Editor {
       case 'r': this._rotateAction(); break;
       case 'Delete': case 'Backspace': this._deleteSel(); break;
       case 'g': this._toggleSnap(); break;
+      case 't': this._togglePlayerRef(); break;
       case 'Escape':
         this._deselect();
         this._clearGhost();
@@ -871,10 +945,29 @@ export class Editor {
     this._deselect();
   }
 
+  _applyColormap(obj, index) {
+    if (!this.assets || this.assets.colormaps.length === 0) return;
+    const newMap = this.assets.getColormap(index);
+    if (!newMap) return;
+    obj.mesh.traverse((child) => {
+      if (!child.isMesh) return;
+      const swap = (mat) => {
+        const m = mat.clone();
+        if (m.map) { m.map = newMap; m.needsUpdate = true; }
+        return m;
+      };
+      if (Array.isArray(child.material)) {
+        child.material = child.material.map(swap);
+      } else {
+        child.material = swap(child.material);
+      }
+    });
+  }
+
   _generateWorld() {
     this._clearAll();
 
-    const T = 4;         // road tile spacing (matches DEFAULT_SIZES.road.value)
+    const T = 4;         // road tile spacing
     const PI = Math.PI;
     const H = PI / 2;
 
@@ -883,130 +976,171 @@ export class Editor {
     const rng = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
     const pick = (arr) => arr[Math.floor(rng() * arr.length)];
     const jit = (v, a = 1) => v + (rng() - 0.5) * a;
+    let cmIdx = 0; // colormap rotation index
 
-    // ── ROAD GRID ──
-    // East-West main road at z = 0
-    for (let x = -32; x <= 32; x += T) {
-      if (x === 0) continue;
-      this._placeObject('road-road-straight', x, 0, H);
-    }
-    // North-South cross road at x = 0
-    for (let z = -32; z <= 32; z += T) {
-      if (z === 0) continue;
-      this._placeObject('road-road-straight', 0, z, 0);
-    }
-    // Center crossroad
-    this._placeObject('road-road-crossroad', 0, 0, 0);
-
-    // Road end caps
-    this._placeObject('road-road-end-round', -36, 0, H);
-    this._placeObject('road-road-end-round', 36, 0, -H);
-    this._placeObject('road-road-end-round', 0, -36, PI);
-    this._placeObject('road-road-end-round', 0, 36, 0);
-
-    // ── HOUSES ──
     const bldgs = [
       'building-a','building-b','building-c','building-d','building-e','building-f',
       'building-g','building-h','building-i','building-j','building-k','building-l',
-      'building-m','building-n','building-o','building-p',
+      'building-m','building-n','building-o','building-p','building-q','building-r',
+      'building-s','building-t','building-u',
     ];
-
-    // North row: face south toward road
-    for (const x of [-24, -16, -8, 8, 16, 24]) {
-      this._placeObject(pick(bldgs), x, -16, 0);
-    }
-    // South row: face north toward road
-    for (const x of [-24, -16, -8, 8, 16, 24]) {
-      this._placeObject(pick(bldgs), x, 16, PI);
-    }
-    // West row: face east toward cross road
-    for (const z of [-24, -16, 16, 24]) {
-      this._placeObject(pick(bldgs), -14, z, H);
-    }
-    // East row: face west toward cross road
-    for (const z of [-24, -16, 16, 24]) {
-      this._placeObject(pick(bldgs), 14, z, -H);
-    }
-
-    // ── CARS ──
     const cars = [
       'car-sedan','car-suv','car-van','car-truck',
       'car-hatchback','car-sedan-sports','car-taxi','car-suv-luxury','car-police',
     ];
+    const pathTypes = ['path-short','path-stones-short','path-stones-messy','path-long','path-stones-long'];
+    const fenceTypes = ['fence-1x4','fence-1x3','fence-2x3','fence-1x2'];
 
-    // Parked along main road
-    const roadCars = [
-      [-22, -3, H], [-14, 3, -H], [10, -3, H], [22, 3, -H],
-      [-28, -3, H], [28, 3, -H],
+    // Place building with colormap variation
+    const placeHouse = (x, z, rot) => {
+      const obj = this._placeObject(pick(bldgs), x, z, rot);
+      if (obj) this._applyColormap(obj, cmIdx++);
+      return obj;
+    };
+
+    // ═══════════ ROAD GRID: 3x3 (roads at x,z = -40, 0, 40) ═══════════
+    const roadLines = [-40, 0, 40];
+    const isects = new Set();
+    for (const rx of roadLines) for (const rz of roadLines) isects.add(`${rx},${rz}`);
+
+    // E-W roads
+    for (const z of roadLines) {
+      for (let x = -52; x <= 52; x += T) {
+        if (isects.has(`${x},${z}`)) continue;
+        this._placeObject('road-road-straight', x, z, H);
+      }
+    }
+    // N-S roads
+    for (const x of roadLines) {
+      for (let z = -52; z <= 52; z += T) {
+        if (isects.has(`${x},${z}`)) continue;
+        this._placeObject('road-road-straight', x, z, 0);
+      }
+    }
+    // 9 crossroad intersections
+    for (const x of roadLines) {
+      for (const z of roadLines) {
+        this._placeObject('road-road-crossroad', x, z, 0);
+      }
+    }
+    // End caps on all 12 road ends
+    for (const z of roadLines) {
+      this._placeObject('road-road-end-round', -56, z, H);
+      this._placeObject('road-road-end-round', 56, z, -H);
+    }
+    for (const x of roadLines) {
+      this._placeObject('road-road-end-round', x, -56, PI);
+      this._placeObject('road-road-end-round', x, 56, 0);
+    }
+
+    // ═══════════ 4 SUBURBAN BLOCKS ═══════════
+    // Block centers sit between road lines
+    const blocks = [
+      { cx: -20, cz: -20 },  // NW block
+      { cx:  20, cz: -20 },  // NE block
+      { cx: -20, cz:  20 },  // SW block
+      { cx:  20, cz:  20 },  // SE block
     ];
-    for (const [x, z, r] of roadCars) this._placeObject(pick(cars), x, z, r);
 
-    // In north driveways
-    for (const x of [-24, -8, 16]) {
-      this._placeObject(pick(cars), x + 2, -10, 0);
-    }
-    // In south driveways
-    for (const x of [-16, 8, 24]) {
-      this._placeObject(pick(cars), x + 2, 10, PI);
+    for (const { cx, cz } of blocks) {
+      // House X offsets within a block (4 per row)
+      const hx = [-14, -6, 6, 14];
+
+      // ── HOUSES ──
+      // South row (near the higher-z road, faces +Z toward it)
+      for (const dx of hx) placeHouse(cx + dx, cz + 14, 0);
+      // North row (near the lower-z road, faces -Z toward it)
+      for (const dx of hx) placeHouse(cx + dx, cz - 14, PI);
+
+      // ── FENCES in front of houses ──
+      for (const dx of hx) {
+        this._placeObject(pick(fenceTypes), cx + dx, cz + 10);
+        this._placeObject(pick(fenceTypes), cx + dx, cz - 10);
+      }
+
+      // ── DRIVEWAYS ──
+      for (const dx of hx) {
+        this._placeObject(pick(['driveway-long', 'driveway-short']), cx + dx + 2, cz + 9, 0);
+        this._placeObject(pick(['driveway-long', 'driveway-short']), cx + dx + 2, cz - 9, PI);
+      }
+
+      // ── WALKWAY PATHS ──
+      for (const dx of hx) {
+        this._placeObject(pick(pathTypes), cx + dx, cz + 10);
+        this._placeObject(pick(pathTypes), cx + dx, cz - 10);
+      }
+
+      // ── CARS: driveways (60% chance) + street parking ──
+      for (const dx of hx) {
+        if (rng() > 0.4) this._placeObject(pick(cars), cx + dx + 2, cz + 9, 0);
+        if (rng() > 0.4) this._placeObject(pick(cars), cx + dx + 2, cz - 9, PI);
+      }
+      // Random street parked cars
+      for (let i = 0; i < 2; i++) {
+        const px = cx + jit(0, 24);
+        const side = rng() > 0.5;
+        this._placeObject(pick(cars), px, cz + (side ? 19 : -19), side ? H : -H);
+      }
+
+      // ── TREES: sidewalk + backyard ──
+      // Sidewalk trees near south road edge
+      for (let dx = -16; dx <= 16; dx += 6) {
+        this._placeObject(pick(['tree-large', 'tree-small']), cx + jit(dx, 1), cz + 6);
+      }
+      // Sidewalk trees near north road edge
+      for (let dx = -16; dx <= 16; dx += 6) {
+        this._placeObject(pick(['tree-large', 'tree-small']), cx + jit(dx, 1), cz - 6);
+      }
+      // Backyard trees (random scatter behind houses)
+      for (let i = 0; i < 6; i++) {
+        const tx = cx + jit(0, 24);
+        const tz = rng() > 0.5 ? cz + jit(18, 3) : cz - jit(18, 3);
+        this._placeObject(pick(['tree-large', 'tree-small']), tx, tz);
+      }
+
+      // ── PLANTERS ──
+      for (const dx of [-10, 10]) {
+        if (rng() > 0.3) this._placeObject('planter', cx + dx, cz + 12);
+        if (rng() > 0.3) this._placeObject('planter', cx + dx, cz - 12);
+      }
     }
 
-    // ── TREES ──
-    // Sidewalk trees along main road
-    for (const x of [-28, -24, -20, -16, -12, 12, 16, 20, 24, 28]) {
-      this._placeObject(pick(['tree-large', 'tree-small']), jit(x, 0.5), -7);
-      this._placeObject(pick(['tree-large', 'tree-small']), jit(x, 0.5), 7);
-    }
-    // Trees along cross road
-    for (const z of [-28, -24, -20, 20, 24, 28]) {
-      this._placeObject(pick(['tree-large', 'tree-small']), -7, jit(z, 0.5));
-      this._placeObject(pick(['tree-large', 'tree-small']), 7, jit(z, 0.5));
-    }
-    // Backyard trees (random scatter)
-    for (let i = 0; i < 20; i++) {
-      const x = jit(pick([-24, -16, -8, 8, 16, 24]), 3);
-      const z = rng() > 0.5 ? jit(-24, 4) : jit(24, 4);
-      this._placeObject(pick(['tree-large', 'tree-small']), x, z);
+    // ═══════════ TREES ALONG N-S ROADS ═══════════
+    for (const x of roadLines) {
+      for (let z = -36; z <= 36; z += 6) {
+        // Skip near intersections
+        if (roadLines.some(rz => Math.abs(z - rz) < 6)) continue;
+        this._placeObject(pick(['tree-large', 'tree-small']), x - 5, jit(z, 1));
+        this._placeObject(pick(['tree-large', 'tree-small']), x + 5, jit(z, 1));
+      }
     }
 
-    // ── FENCES ──
-    // Front fences along north and south house rows
-    for (const x of [-24, -16, -8, 8, 16, 24]) {
-      this._placeObject(pick(['fence-1x4', 'fence-1x3']), x, -11);
-      this._placeObject(pick(['fence-1x4', 'fence-1x3']), x, 11);
+    // ═══════════ TRAFFIC INFRASTRUCTURE ═══════════
+    // Traffic lights at each intersection
+    for (const x of roadLines) {
+      for (const z of roadLines) {
+        this._placeObject('road-light-square', x + 5, z - 5, 0);
+        this._placeObject('road-light-square', x - 5, z + 5, PI);
+      }
     }
 
-    // ── DRIVEWAYS ──
-    for (const x of [-24, -16, -8, 8, 16, 24]) {
-      this._placeObject(pick(['driveway-long', 'driveway-short']), x + 2, -10, 0);
-      this._placeObject(pick(['driveway-long', 'driveway-short']), x + 2, 10, PI);
-    }
+    // Road signs at neighborhood entries
+    this._placeObject('road-sign-highway', -54, -38, H);
+    this._placeObject('road-sign-highway', 54, 38, -H);
+    this._placeObject('road-sign-highway-detailed', -54, 2, H);
+    this._placeObject('road-sign-highway-wide', 54, -2, -H);
+    this._placeObject('road-sign-highway', -38, -54, 0);
+    this._placeObject('road-sign-highway', 38, 54, PI);
 
-    // ── WALKWAY PATHS ──
-    const paths = ['path-short', 'path-stones-short', 'path-stones-messy'];
-    for (const x of [-24, -16, -8, 8, 16, 24]) {
-      this._placeObject(pick(paths), x, -11);
-      this._placeObject(pick(paths), x, 11);
-    }
-
-    // ── PLANTERS ──
-    for (const x of [-20, -12, 12, 20]) {
-      this._placeObject('planter', x, -13);
-      this._placeObject('planter', x, 13);
-    }
-
-    // ── TRAFFIC LIGHTS at intersection ──
-    this._placeObject('road-light-square', 6, -6, 0);
-    this._placeObject('road-light-square', -6, 6, PI);
-
-    // ── ROAD SIGNS ──
-    this._placeObject('road-sign-highway', -34, 2, H);
-    this._placeObject('road-sign-highway', 34, -2, -H);
-
-    // ── CONSTRUCTION ZONE (flavor) ──
-    this._placeObject('road-construction-cone', -30, 2);
-    this._placeObject('road-construction-cone', -30, -2);
-    this._placeObject('road-construction-barrier', -32, 0, H);
-    this._placeObject('road-construction-light', -32, 2);
+    // ═══════════ FLAVOR: CONSTRUCTION, CONES ═══════════
+    // Construction zone on west entry
+    this._placeObject('road-construction-cone', -50, -38);
+    this._placeObject('road-construction-cone', -50, -42);
+    this._placeObject('road-construction-barrier', -52, -40, H);
+    this._placeObject('road-construction-light', -52, -38);
+    // A few random cones near intersections
+    this._placeObject('road-construction-cone', 42, 2);
+    this._placeObject('road-construction-cone', -2, 42);
   }
 
   /* ═══════════════ SAVE / LOAD ═══════════════ */
