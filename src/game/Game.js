@@ -55,7 +55,7 @@ export class Game {
 
     // World — pass loaded assets for GLB models
     this.world = new SuburbanBlock(this.scene, this.collision, assets);
-    this.world.build();
+    this._worldReady = this._initWorld();
 
     // State
     this.state = 'idle'; // idle, playing, wavePause, gameOver
@@ -102,7 +102,24 @@ export class Game {
     document.getElementById('version-display').textContent = `v${__APP_VERSION__}`;
   }
 
-  start() {
+  async _initWorld() {
+    const basePath = import.meta.env.BASE_URL;
+    try {
+      const res = await fetch(basePath + 'levels/default.json');
+      if (res.ok) {
+        const levelData = await res.json();
+        this.world.buildFromLevel(levelData);
+        console.log('Loaded custom level from levels/default.json');
+        return;
+      }
+    } catch (e) {
+      // No custom level available, fall through to procedural
+    }
+    this.world.build();
+  }
+
+  async start() {
+    await this._worldReady;
     this.audio.init();
     this.state = 'playing';
     this.wave = 1;

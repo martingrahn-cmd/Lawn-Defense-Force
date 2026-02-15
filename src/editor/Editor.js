@@ -913,12 +913,38 @@ export class Editor {
         const size = new THREE.Vector3();
         box.getSize(size);
 
-        this.imported[name] = { scene: gltf.scene, size, box };
+        // Store rawData for embedding in save files
+        this.imported[name] = { scene: gltf.scene, size, box, rawData: buf };
         this._refreshPalette();
         this._selectAsset(name);
         resolve(name);
       }, (err) => {
         console.warn('Import failed:', err);
+        resolve(null);
+      });
+    });
+  }
+
+  /** Import a GLB from raw ArrayBuffer (used when loading embedded models) */
+  async _importFromBuffer(name, buf) {
+    const loader = new GLTFLoader();
+    return new Promise((resolve) => {
+      loader.parse(buf, '', (gltf) => {
+        gltf.scene.traverse(child => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+
+        const box = new THREE.Box3().setFromObject(gltf.scene);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+
+        this.imported[name] = { scene: gltf.scene, size, box, rawData: buf };
+        resolve(name);
+      }, (err) => {
+        console.warn('Failed to parse embedded model:', name, err);
         resolve(null);
       });
     });
@@ -1145,9 +1171,36 @@ export class Editor {
 
   /* ═══════════════ SAVE / LOAD ═══════════════ */
 
+  /* Base64 helpers */
+  _arrayBufferToBase64(buf) {
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  }
+
+  _base64ToArrayBuffer(b64) {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+  }
+
   _saveLevel() {
+    // Collect embedded GLB data for imported models that are actually used
+    const embeddedModels = {};
+    for (const obj of this.placed) {
+      if (obj.name.startsWith('imp-') && this.imported[obj.name]) {
+        if (!embeddedModels[obj.name]) {
+          const raw = this.imported[obj.name].rawData;
+          if (raw) embeddedModels[obj.name] = this._arrayBufferToBase64(raw);
+        }
+      }
+    }
+
+    const hasEmbedded = Object.keys(embeddedModels).length > 0;
     const data = {
-      version: 1,
+      version: 2,
       objects: this.placed.map(o => ({
         model: o.name,
         x: Math.round(o.x * 10) / 10,
@@ -1156,8 +1209,12 @@ export class Editor {
         scale: Math.round(o.scale * 100) / 100
       }))
     };
+    if (hasEmbedded) data.embeddedModels = embeddedModels;
 
     const json = JSON.stringify(data, null, 2);
+    const sizeMB = (json.length / 1024 / 1024).toFixed(1);
+    console.log(`Level saved: ${data.objects.length} objects, ${Object.keys(embeddedModels).length} embedded models, ${sizeMB} MB`);
+
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1176,7 +1233,7 @@ export class Editor {
       if (!file) return;
       try {
         const data = JSON.parse(await file.text());
-        this._loadLevelData(data);
+        await this._loadLevelData(data);
       } catch (err) {
         console.error('Failed to load level:', err);
       }
@@ -1184,10 +1241,23 @@ export class Editor {
     input.click();
   }
 
-  _loadLevelData(data) {
+  async _loadLevelData(data) {
     for (const obj of this.placed) this.scene.remove(obj.mesh);
     this.placed = [];
     this._deselect();
+
+    // Restore embedded GLB models first
+    if (data.embeddedModels) {
+      const names = Object.keys(data.embeddedModels);
+      console.log(`Loading ${names.length} embedded model(s)...`);
+      for (const [name, b64] of Object.entries(data.embeddedModels)) {
+        if (!this.imported[name] && !(this.assets && this.assets.models[name])) {
+          const buf = this._base64ToArrayBuffer(b64);
+          await this._importFromBuffer(name, buf);
+        }
+      }
+      this._refreshPalette();
+    }
 
     if (data.objects) {
       for (const o of data.objects) {

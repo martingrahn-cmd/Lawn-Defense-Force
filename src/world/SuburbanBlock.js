@@ -21,6 +21,82 @@ export class SuburbanBlock {
     this._buildProps();
   }
 
+  /**
+   * Build world from a level.json exported by the editor.
+   * Each object has: { model, x, z, rotationY, scale }
+   */
+  buildFromLevel(levelData) {
+    // Build a larger ground for editor-made levels (editor uses 200x200)
+    this._buildLevelGround();
+
+    const objects = levelData.objects || [];
+    for (const o of objects) {
+      const name = o.model;
+      const data = this.assets ? this.assets.getModel(name) : null;
+      if (!data) continue;
+
+      const model = data.scene;
+      const s = o.scale || 1;
+      model.scale.setScalar(s);
+      if (o.rotationY) model.rotation.y = o.rotationY;
+
+      // Position: center at (x, z), bottom at y=0
+      model.position.set(0, 0, 0);
+      model.updateMatrixWorld(true);
+      const bounds = new THREE.Box3().setFromObject(model);
+      const cx = (bounds.min.x + bounds.max.x) / 2;
+      const cz = (bounds.min.z + bounds.max.z) / 2;
+      model.position.set(o.x - cx, -bounds.min.y, o.z - cz);
+
+      this.scene.add(model);
+      this.objects.push(model);
+
+      // Determine collision behavior from model name
+      const isBuilding = name.startsWith('building-');
+      const isFence = name.startsWith('fence');
+      const isCar = name.startsWith('car-');
+      const isRoad = name.startsWith('road-');
+      const isDestructible = isFence || isCar;
+      const hasCollision = isBuilding || isFence || isCar;
+
+      if (hasCollision) {
+        model.updateMatrixWorld(true);
+        const worldBox = new THREE.Box3().setFromObject(model);
+        this.collision.addStatic({
+          min: { x: worldBox.min.x, z: worldBox.min.z },
+          max: { x: worldBox.max.x, z: worldBox.max.z },
+          type: isDestructible ? 'destructible' : 'solid',
+          ref: model,
+          hp: isDestructible ? 30 : Infinity
+        });
+      }
+
+      if (isDestructible) {
+        this.destructibles.push({
+          mesh: model,
+          hp: 30,
+          alive: true,
+          position: new THREE.Vector3(o.x, 0, o.z)
+        });
+      }
+    }
+
+    console.log(`Level loaded: ${objects.length} objects placed`);
+  }
+
+  _buildLevelGround() {
+    const grassGeo = new THREE.PlaneGeometry(200, 200);
+    const grassMat = new THREE.MeshStandardMaterial({
+      color: 0x4a8c3f,
+      roughness: 0.9
+    });
+    const grass = new THREE.Mesh(grassGeo, grassMat);
+    grass.rotation.x = -Math.PI / 2;
+    grass.receiveShadow = true;
+    this.scene.add(grass);
+    this.objects.push(grass);
+  }
+
   // --- Utility: place a greybox ---
   _addBox(w, h, d, color, x, y, z, collision = true, destructible = false) {
     const geo = new THREE.BoxGeometry(w, h, d);
