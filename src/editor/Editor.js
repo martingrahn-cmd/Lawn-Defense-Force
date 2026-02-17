@@ -527,7 +527,7 @@ export class Editor {
       <div class="ed-props-title">PROPERTIES</div>
       <div class="ed-prop-row"><label>Model:</label><span id="ed-prop-name">-</span></div>
       <div class="ed-prop-row"><label>X:</label><input id="ed-prop-x" type="number" step="0.5"></div>
-      <div class="ed-prop-row"><label>Y (höjd):</label><input id="ed-prop-y" type="number" step="0.5" min="0"></div>
+      <div class="ed-prop-row"><label>Y (höjd):</label><input id="ed-prop-y" type="number" step="0.1"></div>
       <div class="ed-prop-row"><label>Z:</label><input id="ed-prop-z" type="number" step="0.5"></div>
       <div class="ed-prop-row"><label>Rot:</label><input id="ed-prop-rot" type="number" step="45"></div>
       <div class="ed-prop-row"><label>Scale:</label><input id="ed-prop-scale" type="number" step="0.1" min="0.1"></div>
