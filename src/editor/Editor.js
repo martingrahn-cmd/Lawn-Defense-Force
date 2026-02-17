@@ -527,6 +527,7 @@ export class Editor {
       <div class="ed-props-title">PROPERTIES</div>
       <div class="ed-prop-row"><label>Model:</label><span id="ed-prop-name">-</span></div>
       <div class="ed-prop-row"><label>X:</label><input id="ed-prop-x" type="number" step="0.5"></div>
+      <div class="ed-prop-row"><label>Y (höjd):</label><input id="ed-prop-y" type="number" step="0.5" min="0"></div>
       <div class="ed-prop-row"><label>Z:</label><input id="ed-prop-z" type="number" step="0.5"></div>
       <div class="ed-prop-row"><label>Rot:</label><input id="ed-prop-rot" type="number" step="45"></div>
       <div class="ed-prop-row"><label>Scale:</label><input id="ed-prop-scale" type="number" step="0.1" min="0.1"></div>
@@ -536,6 +537,7 @@ export class Editor {
 
     const onChange = () => this._applyProps();
     panel.querySelector('#ed-prop-x').onchange = onChange;
+    panel.querySelector('#ed-prop-y').onchange = onChange;
     panel.querySelector('#ed-prop-z').onchange = onChange;
     panel.querySelector('#ed-prop-rot').onchange = onChange;
     panel.querySelector('#ed-prop-scale').onchange = onChange;
@@ -642,7 +644,7 @@ export class Editor {
 
   /* ═══════════════ OBJECT OPERATIONS ═══════════════ */
 
-  _placeObject(name, x, z, rotY = 0, scale = null) {
+  _placeObject(name, x, z, rotY = 0, scale = null, y = 0) {
     const data = this._getModel(name);
     if (!data) return null;
 
@@ -656,10 +658,10 @@ export class Editor {
     const box = new THREE.Box3().setFromObject(mesh);
     const cx = (box.min.x + box.max.x) / 2;
     const cz = (box.min.z + box.max.z) / 2;
-    mesh.position.set(x - cx, -box.min.y, z - cz);
+    mesh.position.set(x - cx, y - box.min.y, z - cz);
 
     this.scene.add(mesh);
-    const obj = { id: ++this._id, name, mesh, x, z, rotationY: rotY, scale: s };
+    const obj = { id: ++this._id, name, mesh, x, z, y, rotationY: rotY, scale: s };
     this.placed.push(obj);
     return obj;
   }
@@ -673,7 +675,7 @@ export class Editor {
     const box = new THREE.Box3().setFromObject(mesh);
     const cx = (box.min.x + box.max.x) / 2;
     const cz = (box.min.z + box.max.z) / 2;
-    mesh.position.set(obj.x - cx, -box.min.y, obj.z - cz);
+    mesh.position.set(obj.x - cx, (obj.y || 0) - box.min.y, obj.z - cz);
   }
 
   _select(obj) {
@@ -699,6 +701,7 @@ export class Editor {
     const o = this.selected;
     document.getElementById('ed-prop-name').textContent = o.name;
     document.getElementById('ed-prop-x').value = o.x.toFixed(1);
+    document.getElementById('ed-prop-y').value = (o.y || 0).toFixed(1);
     document.getElementById('ed-prop-z').value = o.z.toFixed(1);
     document.getElementById('ed-prop-rot').value = Math.round(THREE.MathUtils.radToDeg(o.rotationY));
     document.getElementById('ed-prop-scale').value = o.scale.toFixed(2);
@@ -708,6 +711,7 @@ export class Editor {
     if (!this.selected) return;
     const o = this.selected;
     o.x = parseFloat(document.getElementById('ed-prop-x').value) || 0;
+    o.y = parseFloat(document.getElementById('ed-prop-y').value) || 0;
     o.z = parseFloat(document.getElementById('ed-prop-z').value) || 0;
     o.rotationY = THREE.MathUtils.degToRad(
       parseFloat(document.getElementById('ed-prop-rot').value) || 0
@@ -741,7 +745,7 @@ export class Editor {
   _duplicateSel() {
     if (!this.selected) return;
     const o = this.selected;
-    const dup = this._placeObject(o.name, o.x + 2, o.z + 2, o.rotationY, o.scale);
+    const dup = this._placeObject(o.name, o.x + 2, o.z + 2, o.rotationY, o.scale, o.y || 0);
     if (dup) this._select(dup);
   }
 
@@ -1204,6 +1208,7 @@ export class Editor {
       objects: this.placed.map(o => ({
         model: o.name,
         x: Math.round(o.x * 10) / 10,
+        y: Math.round((o.y || 0) * 10) / 10,
         z: Math.round(o.z * 10) / 10,
         rotationY: Math.round(o.rotationY * 1000) / 1000,
         scale: Math.round(o.scale * 100) / 100
@@ -1261,7 +1266,7 @@ export class Editor {
 
     if (data.objects) {
       for (const o of data.objects) {
-        this._placeObject(o.model, o.x, o.z, o.rotationY || 0, o.scale || null);
+        this._placeObject(o.model, o.x, o.z, o.rotationY || 0, o.scale || null, o.y || 0);
       }
     }
   }

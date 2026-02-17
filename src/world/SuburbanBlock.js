@@ -23,7 +23,7 @@ export class SuburbanBlock {
 
   /**
    * Build world from a level.json exported by the editor.
-   * Each object has: { model, x, z, rotationY, scale }
+   * Each object has: { model, x, y, z, rotationY, scale }
    */
   buildFromLevel(levelData) {
     // Build a larger ground for editor-made levels (editor uses 200x200)
@@ -37,16 +37,17 @@ export class SuburbanBlock {
 
       const model = data.scene;
       const s = o.scale || 1;
+      const yOffset = o.y || 0;
       model.scale.setScalar(s);
       if (o.rotationY) model.rotation.y = o.rotationY;
 
-      // Position: center at (x, z), bottom at y=0
+      // Position: center at (x, z), bottom at y offset
       model.position.set(0, 0, 0);
       model.updateMatrixWorld(true);
       const bounds = new THREE.Box3().setFromObject(model);
       const cx = (bounds.min.x + bounds.max.x) / 2;
       const cz = (bounds.min.z + bounds.max.z) / 2;
-      model.position.set(o.x - cx, -bounds.min.y, o.z - cz);
+      model.position.set(o.x - cx, yOffset - bounds.min.y, o.z - cz);
 
       this.scene.add(model);
       this.objects.push(model);
